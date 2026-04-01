@@ -47,13 +47,6 @@ If you want to run the Python source, install the required packages:
 ```bash
 pip install pyqt5 pyperclip numpy
 ```
-
-> ⚡ **One-line pip install for all dependencies**:
->
-> ```bash
-> pip install pyqt5 pyperclip numpy
-> ```
-
 ### 2. Installing PIP on Windows
 
 If you don’t have `pip` installed:
