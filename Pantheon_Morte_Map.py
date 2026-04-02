@@ -1,6 +1,6 @@
 # ==============================================================
 # Pantheon Morte Map Tool
-# Version: 3.1
+# Version: 3.2
 # Created By: NeroMorte (AKA: Morte)
 # Description: Python tool for map overlay with calibration, pins, layers
 # Build Instructions:
@@ -15,9 +15,12 @@ import time
 import threading
 import json
 import os
+import math
 import configparser
 import pyperclip
 import numpy as np
+import urllib.request
+import urllib.error
 
 def resource_path(relative_path):
     """Get the absolute path for files when running as EXE or script."""
@@ -28,11 +31,12 @@ def resource_path(relative_path):
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QLabel,
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
-    QListWidget, QComboBox, QSizePolicy, QCheckBox, QScrollArea
+    QListWidget, QComboBox, QSizePolicy, QCheckBox, QScrollArea,
+    QShortcut, QMessageBox,
 )
 from PyQt5.QtGui import (
     QPixmap, QPainter, QColor, QFont, QPen,
-    QPainterPath, QFontMetrics, QIcon, QImage
+    QPainterPath, QFontMetrics, QIcon, QImage, QKeySequence
 )
 from PyQt5.QtCore import Qt, QPoint, QTimer, pyqtSignal, QObject, QRectF, QPointF
 
@@ -48,6 +52,10 @@ _INI_PATH           = os.path.join(_SETTINGS_DIR_EARLY, "config.ini")
 
 _INI_DEFAULTS = {
     "window": {
+        # X position of the window (pixels from left edge of screen)
+        "win_x": "100",
+        # Y position of the window (pixels from top edge of screen)
+        "win_y": "100",
         # Width of the map window when it first opens (pixels)
         "win_w": "1024",
         # Height of the map window when it first opens (pixels)
@@ -60,6 +68,10 @@ _INI_DEFAULTS = {
         "panel_width": "340",
         # How long flash messages stay on screen in milliseconds
         "flash_duration": "4000",
+        # Enable saving/restoring window position and size
+        "persist_window_geometry": "true",
+        # Keep zoom and pan when switching maps / layers (recenter only on first load if no saved geom)
+        "keep_view_on_map_change": "true",
     },
     "zoom": {
         # Minimum zoom level  (0.01 lets you zoom way out for huge maps)
@@ -94,6 +106,62 @@ _INI_DEFAULTS = {
         # Options: 720p  1080p  1440p  2k  4k  8k  16k
         "map_cache_resolution": "4k",
     },
+    "colors": {
+        # Hex #RRGGBB or #AARRGGBB — player location (dot + rings)
+        "player_fill": "#ff3232",
+        "player_ring": "#b40000",
+        "player_outer_ring": "#ff5050",
+        # Last-click / ping crosshair
+        "ping_cross": "#ffb400",
+        "ping_circle": "#ffb400",
+        # Calibration dots (stroke, fill center, number label)
+        "cal_stroke": "#000000",
+        "cal_fill": "#fff0f0",
+        "cal_label": "#ffffb4",
+        "cal_edit_stroke": "#ffdc00",
+        "cal_edit_fill": "#fff064",
+        # Drop pins
+        "pin_stroke": "#640000",
+        "pin_fill": "#d21e1e",
+        "pin_highlight_stroke": "#ffdc00",
+        "pin_highlight_fill": "#ffc800",
+        "pin_label": "#ffdc50",
+        "pin_label_shadow": "#000000",
+        # Typed / named world markers (separate from player)
+        "marker_fill": "#2ee8c8",
+        "marker_ring": "#00a88c",
+        "marker_label": "#b0fff0",
+    },
+    "player_animation": {
+        # Extra pulse rings beyond the default outer ring (0 = no pulse animation)
+        "pulse_rings": "2",
+        # Angular speed for the pulse (higher = faster)
+        "pulse_speed": "2.5",
+        # Max extra radius multiplier added on top of base rings (pixels scale with dot_size)
+        "pulse_extent": "1.35",
+        "pulse_interval_ms": "40",
+    },
+    "keybinds": {
+        # Qt key sequence, e.g. Shift+M — hide/show the map window
+        "toggle_map_visibility": "Shift+M",
+    },
+    "jumploc": {
+        # parts[] index: 0 = "/jumploc". Game uses X,Y for the 2D map (not "world Z").
+        "map_x_index": "1",
+        "map_y_index": "3",
+        # Game Z token index (e.g. 2 or 4)—only for choosing default visible layer, not map X/Y and not shown in HUD.
+        "game_z_index": "0",
+    },
+    "calibration_extra": {
+        # When enabling CAL mode, snap zoom to this value (1.0 = image pixels 1:1 at scale factor 1). 0 = do not change zoom.
+        "cal_mode_snap_zoom": "1.0",
+        # When 1, zoom is forced back to snap value whenever CAL mode is on (prevents calibrating at the wrong zoom).
+        "lock_zoom_in_cal_mode": "false",
+    },
+    "update": {
+        # Raw URL to update_manifest.json (see README). Empty = Update button only explains.
+        "manifest_url": "",
+    },
 }
 
 def _write_ini_with_comments(path: str):
@@ -108,12 +176,16 @@ def _write_ini_with_comments(path: str):
 
     comment_map = {
         # window
+        "win_x":           "; Window X position (pixels from left edge of screen)",
+        "win_y":           "; Window Y position (pixels from top edge of screen)",
         "win_w":           "; Width of the map window when it first opens (pixels)",
         "win_h":           "; Height of the map window when it first opens (pixels)",
         "default_opacity": "; Starting window opacity  0.0=invisible  1.0=fully opaque",
         "top_bar_height":  "; Height of the top toolbar in pixels",
         "panel_width":     "; Width of the side panels (CAL / PINS / LAYERS) in pixels",
         "flash_duration":  "; How long flash messages stay on screen (milliseconds)",
+        "persist_window_geometry": "; Enable saving/restoring window position and size",
+        "keep_view_on_map_change": "; Keep zoom/pan when changing maps (still reload cal/pins)",
         # zoom
         "min_zoom":        "; Minimum zoom level  (0.01 lets you zoom way out for huge maps)",
         "max_zoom":        "; Maximum zoom level",
@@ -134,6 +206,16 @@ def _write_ini_with_comments(path: str):
             "; First load is slow while the cache is built; every load after is fast.\n"
             "; Delete the cached files to rebuild at a new resolution."
         ),
+        # colors (representative; others get same section header)
+        "player_fill":     "; Player dot fill #RRGGBB",
+        "marker_fill":     "; Named world markers (typed coords) fill color",
+        "pulse_rings":     "; Extra animated pulse ring count (0 disables)",
+        "toggle_map_visibility": "; Qt key sequence to hide/show window",
+        "map_x_index":     "; /jumploc parts[] index for map X (left ↔ right)",
+        "map_y_index":     "; /jumploc parts[] index for map Y (up ↔ down on map)",
+        "game_z_index":    "; Token for game Z only (layer pick); 0=off; not used for dot position or status line",
+        "cal_mode_snap_zoom": "; Zoom level when entering CAL mode (0 = leave zoom unchanged)",
+        "manifest_url":    "; Raw URL for update_manifest.json (GitHub raw)",
     }
 
     for section, keys in _INI_DEFAULTS.items():
@@ -168,38 +250,109 @@ def _load_ini() -> configparser.ConfigParser:
 _CFG = _load_ini()
 
 # ==============================================================
-# SETTINGS  — all values now come from the INI
+# Color / theme helpers
 # ==============================================================
 
-WIN_W            = _CFG.getint   ("window",               "win_w")
-WIN_H            = _CFG.getint   ("window",               "win_h")
-DEFAULT_OPACITY  = _CFG.getfloat ("window",               "default_opacity")
-TOP_BAR_HEIGHT   = _CFG.getint   ("window",               "top_bar_height")
-PANEL_WIDTH      = _CFG.getint   ("window",               "panel_width")
-FLASH_DURATION   = _CFG.getint   ("window",               "flash_duration")
+def _parse_hex_color(s: str, default: QColor) -> QColor:
+    s = (s or "").strip()
+    if not s.startswith("#"):
+        return QColor(default)
+    h = s[1:]
+    try:
+        if len(h) == 6:
+            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+            return QColor(r, g, b)
+        if len(h) == 8:
+            a, r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), int(h[6:8], 16)
+            return QColor(r, g, b, a)
+    except ValueError:
+        pass
+    return QColor(default)
 
-MIN_ZOOM         = _CFG.getfloat ("zoom",                 "min_zoom")
-MAX_ZOOM         = _CFG.getfloat ("zoom",                 "max_zoom")
-ZOOM_STEP        = _CFG.getfloat ("zoom",                 "zoom_step")
 
-DOT_SIZE         = _CFG.getint   ("pins_and_calibration", "dot_size")
-CALIB_DOT_SIZE   = _CFG.getint   ("pins_and_calibration", "calib_dot_size")
-PIN_W            = _CFG.getint   ("pins_and_calibration", "pin_w")
-PIN_H            = _CFG.getint   ("pins_and_calibration", "pin_h")
-UPDATE_THRESHOLD = _CFG.getint   ("pins_and_calibration", "update_threshold")
+def _build_theme(cfg: configparser.ConfigParser) -> dict:
+    out = {}
+    if "colors" not in cfg:
+        return out
+    for key in cfg["colors"]:
+        out[key] = _parse_hex_color(cfg.get("colors", key), QColor(255, 255, 255))
+    return out
 
-LOWER_LAYER_OPACITY  = _CFG.getfloat("layers", "lower_layer_opacity")
 
-MAP_CACHE_RESOLUTION = _CFG.get  ("cache",  "map_cache_resolution").strip().lower()
+# ==============================================================
+# SETTINGS  — all values now come from the INI
+# ==============================================================
+WIN_X            = _CFG.getint   ("window",              "x", fallback=100)
+WIN_Y            = _CFG.getint   ("window",               "y", fallback=100)
+WIN_W            = _CFG.getint   ("window",               "win_w", fallback=1024)
+WIN_H            = _CFG.getint   ("window",               "win_h", fallback=768)
+DEFAULT_OPACITY  = _CFG.getfloat ("window",               "default_opacity", fallback=0.85)
+TOP_BAR_HEIGHT   = _CFG.getint   ("window",               "top_bar_height", fallback=38)
+PANEL_WIDTH      = _CFG.getint   ("window",               "panel_width", fallback=340)
+FLASH_DURATION   = _CFG.getint   ("window",               "flash_duration", fallback=4000)
+PERSIST_GEOMETRY = _CFG.getboolean("window",              "persist_window_geometry", fallback=True)
+KEEP_VIEW        = _CFG.getboolean("window",              "keep_view_on_map_change", fallback=True)
 
-# --- App identity ---
+MIN_ZOOM         = _CFG.getfloat ("zoom",                 "min_zoom", fallback=0.01)
+MAX_ZOOM         = _CFG.getfloat ("zoom",                 "max_zoom", fallback=18.0)
+ZOOM_STEP        = _CFG.getfloat ("zoom",                 "zoom_step", fallback=0.12)
+
+DOT_SIZE         = _CFG.getint   ("pins_and_calibration", "dot_size", fallback=14)
+CALIB_DOT_SIZE   = _CFG.getint   ("pins_and_calibration", "calib_dot_size", fallback=12)
+PIN_W            = _CFG.getint   ("pins_and_calibration", "pin_w", fallback=22)
+PIN_H            = _CFG.getint   ("pins_and_calibration", "pin_h", fallback=30)
+UPDATE_THRESHOLD = _CFG.getint   ("pins_and_calibration", "update_threshold", fallback=50)
+
+LOWER_LAYER_OPACITY  = _CFG.getfloat("layers", "lower_layer_opacity", fallback=0.75)
+
+MAP_CACHE_RESOLUTION = _CFG.get  ("cache",  "map_cache_resolution", fallback="4k").strip().lower()
+
+THEME            = _build_theme(_CFG)
+
+
+def theme_q(key: str, default: QColor) -> QColor:
+    c = THEME.get(key)
+    if c is not None and c.isValid():
+        return QColor(c)
+    return QColor(default)
+
+
+PULSE_RINGS      = _CFG.getint   ("player_animation", "pulse_rings", fallback=2)
+PULSE_SPEED      = _CFG.getfloat ("player_animation", "pulse_speed", fallback=2.5)
+PULSE_EXTENT     = _CFG.getfloat ("player_animation", "pulse_extent", fallback=1.35)
+PULSE_INTERVAL_MS = _CFG.getint  ("player_animation", "pulse_interval_ms", fallback=40)
+
+TOGGLE_MAP_KEYS  = _CFG.get      ("keybinds", "toggle_map_visibility", fallback="Shift+M")
+
+
+def _ini_jumploc_axis_index(
+    cfg: configparser.ConfigParser, new_key: str, legacy_key: str, default: int
+) -> int:
+    """Prefer map_x_index / map_y_index; fall back to legacy world_x_index / world_z_index."""
+    if cfg.has_option("jumploc", new_key):
+        return cfg.getint("jumploc", new_key)
+    if cfg.has_option("jumploc", legacy_key):
+        return cfg.getint("jumploc", legacy_key)
+    return default
+
+
+MAP_X_I = _ini_jumploc_axis_index(_CFG, "map_x_index", "world_x_index", 1)
+MAP_Y_I = _ini_jumploc_axis_index(_CFG, "map_y_index", "world_z_index", 3)
+GAME_Z_I = _CFG.getint("jumploc", "game_z_index", fallback=0)
+
+CAL_SNAP_ZOOM    = _CFG.getfloat ("calibration_extra", "cal_mode_snap_zoom", fallback=1.0)
+LOCK_ZOOM_CAL    = _CFG.getboolean("calibration_extra", "lock_zoom_in_cal_mode", fallback=False)
+
+UPDATE_MANIFEST_URL = _CFG.get   ("update", "manifest_url", fallback="").strip()
+
+# --- App identity (hardcoded — not read from config.ini) ---
 APP_NAME         = "Pantheon Morte Map"
 APP_AUTHOR       = "NeroMorte (AKA Morte)"
 APP_DESCRIPTION  = "Pantheon Morte Map Viewer"
-APP_VERSION      = "3.1.0.0"
+APP_VERSION      = "3.2.0.0"
 APP_COPYRIGHT    = "© 2026 NeroMorte"
-APP_FILENAME     = "Pantheon_Morte_Map.exe"
-    
+APP_FILENAME     = f"Pantheon_Morte_Map[{APP_VERSION}].exe"
+
 _RESOLUTION_MAP = {
     "720p":  1280,
     "1080p": 1920,
@@ -273,21 +426,61 @@ def _map_layer_path(map_name: str, layer_file: str) -> str:
 def compute_affine_transform(pts):
     if len(pts) < 3:
         return np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
-    A, Bx, Bz = [], [], []
-    for px, pz, wx, wz in pts:
-        A.append([wx, wz, 1])
-        Bx.append(px)
-        Bz.append(pz)
-    A  = np.array(A,  dtype=float)
-    Bx = np.array(Bx, dtype=float)
-    Bz = np.array(Bz, dtype=float)
-    xc, _, _, _ = np.linalg.lstsq(A, Bx, rcond=None)
-    zc, _, _, _ = np.linalg.lstsq(A, Bz, rcond=None)
-    return xc, zc
+    # Each pt: image (img_x, img_y), game map (map_x, map_y) from /jumploc tokens 1 & 3
+    A, Bpx, Bpy = [], [], []
+    for img_x, img_y, map_x, map_y in pts:
+        A.append([map_x, map_y, 1])
+        Bpx.append(img_x)
+        Bpy.append(img_y)
+    A   = np.array(A,   dtype=float)
+    Bpx = np.array(Bpx, dtype=float)
+    Bpy = np.array(Bpy, dtype=float)
+    xc, _, _, _ = np.linalg.lstsq(A, Bpx, rcond=None)
+    yc, _, _, _ = np.linalg.lstsq(A, Bpy, rcond=None)
+    return xc, yc
 
-def world_to_pixel(wx, wz, xc, zc):
-    return (xc[0]*wx + xc[1]*wz + xc[2],
-            zc[0]*wx + zc[1]*wz + zc[2])
+
+def world_to_pixel(map_x, map_y, xc, yc):
+    return (xc[0]*map_x + xc[1]*map_y + xc[2],
+            yc[0]*map_x + yc[1]*map_y + yc[2])
+
+
+def pixel_to_world(img_px, img_py, xc, yc):
+    """Inverse affine: image pixel → game map X,Y (Z is layer-only, not used here)."""
+    A = np.array([[xc[0], xc[1]], [yc[0], yc[1]]], dtype=float)
+    det = float(np.linalg.det(A))
+    if abs(det) < 1e-14:
+        return float("nan"), float("nan")
+    v = np.array([img_px - xc[2], img_py - yc[2]], dtype=float)
+    w = np.linalg.solve(A, v)
+    return float(w[0]), float(w[1])
+
+
+def jumploc_map_xy(parts: list, mx_i: int = None, my_i: int = None) -> tuple:
+    """(map X, map Y) from /jumploc using config indices (defaults: tokens 1 and 3)."""
+    mx_i = MAP_X_I if mx_i is None else mx_i
+    my_i = MAP_Y_I if my_i is None else my_i
+    return float(parts[mx_i]), float(parts[my_i])
+
+
+def jumploc_game_z(parts: list):
+    """Layer-hint Z from /jumploc (not map coords). None when game_z_index is 0."""
+    if GAME_Z_I <= 0:
+        return None
+    if len(parts) <= GAME_Z_I:
+        return None
+    return float(parts[GAME_Z_I])
+
+
+def _jumploc_required_token_count() -> int:
+    n = max(MAP_X_I, MAP_Y_I)
+    if GAME_Z_I > 0:
+        n = max(n, GAME_Z_I)
+    return n
+
+
+def _markers_file(map_name: str) -> str:
+    return os.path.join(SETTINGS_DIR, f"named_markers_{_safe_key(map_name)}.json")
 
 
 # ==============================================================
@@ -340,52 +533,106 @@ class MapCanvas(QWidget):
         p.setOpacity(1.0)
 
         p.setFont(QFont("Consolas", 12, QFont.Bold))
-        for idx, (cpx, cpz, wx, wz) in enumerate(ov.calibration_points):
-            sx = cpx * ov.zoom + ov.offset_x
-            sy = cpz * ov.zoom + ov.offset_y
+        cal_stroke = theme_q("cal_stroke", QColor(0, 0, 0))
+        cal_fill = theme_q("cal_fill", QColor(255, 255, 255, 220))
+        cal_label = theme_q("cal_label", QColor(255, 255, 180))
+        cal_edit_s = theme_q("cal_edit_stroke", QColor(255, 220, 0))
+        cal_edit_f = theme_q("cal_edit_fill", QColor(255, 240, 100, 220))
+        lbl_shadow = QColor(0, 0, 0)
+
+        for idx, (img_x, img_y, map_x, map_y) in enumerate(ov.calibration_points):
+            sx = img_x * ov.zoom + ov.offset_x
+            sy = img_y * ov.zoom + ov.offset_y
             if ov.edit_mode and ov.edit_type == "cal" and ov.edit_index == idx:
-                p.setPen(QPen(QColor(255, 220, 0), 3))
-                p.setBrush(QColor(255, 240, 100, 220))
+                p.setPen(QPen(cal_edit_s, 3))
+                p.setBrush(cal_edit_f)
             else:
-                p.setPen(QPen(QColor(0, 0, 0), 2))
-                p.setBrush(QColor(255, 255, 255, 220))
+                p.setPen(QPen(cal_stroke, 2))
+                p.setBrush(cal_fill)
             p.drawEllipse(int(sx) - CALIB_DOT_SIZE//2,
                           int(sy) - CALIB_DOT_SIZE//2,
                           CALIB_DOT_SIZE, CALIB_DOT_SIZE)
             lx, ly = int(sx) + CALIB_DOT_SIZE//2 + 3, int(sy) + 5
-            p.setPen(QColor(0, 0, 0))
+            p.setPen(lbl_shadow)
             p.drawText(lx+1, ly+1, str(idx+1))
-            p.setPen(QColor(255, 255, 180))
+            p.setPen(cal_label)
             p.drawText(lx, ly, str(idx+1))
 
         if ov.last_click_px:
             cpx, cpy = ov.last_click_px
             sx = cpx * ov.zoom + ov.offset_x
             sy = cpy * ov.zoom + ov.offset_y
-            p.setPen(QPen(QColor(255, 180, 0), 2))
+            ping_c = theme_q("ping_cross", QColor(255, 180, 0))
+            ping_o = theme_q("ping_circle", QColor(255, 180, 0))
+            p.setPen(QPen(ping_c, 2))
             p.setBrush(Qt.NoBrush)
             r = 10
             p.drawLine(int(sx)-r, int(sy), int(sx)+r, int(sy))
             p.drawLine(int(sx), int(sy)-r, int(sx), int(sy)+r)
+            p.setPen(QPen(ping_o, 2))
             p.drawEllipse(int(sx)-r, int(sy)-r, r*2, r*2)
+
+        mf = theme_q("marker_fill", QColor(46, 232, 200, 200))
+        mr = theme_q("marker_ring", QColor(0, 168, 140))
+        mlab = theme_q("marker_label", QColor(176, 255, 240))
+        ms = max(8, DOT_SIZE - 2)
+        for m in ov.named_markers:
+            if "wy" in m:
+                map_y = float(m["wy"])
+            elif "wz" in m:
+                map_y = float(m["wz"])
+            else:
+                continue
+            ipx, ipy = world_to_pixel(float(m["wx"]), map_y, ov.xc, ov.yc)
+            if not (math.isfinite(ipx) and math.isfinite(ipy)):
+                continue
+            sx = ipx * ov.zoom + ov.offset_x
+            sy = ipy * ov.zoom + ov.offset_y
+            p.setPen(QPen(mr, 2))
+            p.setBrush(mf)
+            p.drawEllipse(int(sx) - ms, int(sy) - ms, ms * 2, ms * 2)
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(int(sx) - ms - 3, int(sy) - ms - 3, ms * 2 + 6, ms * 2 + 6)
+            nm = m.get("name") or "Marker"
+            sub = f"{nm}  X={float(m['wx']):.1f} Y={map_y:.1f}"
+            p.setPen(lbl_shadow)
+            p.drawText(int(sx) - 40, int(sy) - ms - 6 + 1, sub)
+            p.setPen(mlab)
+            p.drawText(int(sx) - 40, int(sy) - ms - 6, sub)
 
         for i, pin in enumerate(ov.drop_pins):
             highlight = ov.edit_mode and ov.edit_type == "pin" and ov.edit_index == i
             self._draw_pin(p, pin["px"], pin["py"], pin["name"], highlight=highlight)
 
         if ov.current_loc is not None:
-            ppx, ppz = world_to_pixel(
-                ov.current_loc[0], ov.current_loc[1], ov.xc, ov.zc)
-            sx = ppx * ov.zoom + ov.offset_x
-            sy = ppz * ov.zoom + ov.offset_y
-            p.setPen(QPen(QColor(255, 80, 80, 130), 3))
-            p.setBrush(Qt.NoBrush)
-            p.drawEllipse(int(sx)-DOT_SIZE, int(sy)-DOT_SIZE,
-                          DOT_SIZE*2, DOT_SIZE*2)
-            p.setPen(QPen(QColor(180, 0, 0), 1))
-            p.setBrush(QColor(255, 50, 50))
-            p.drawEllipse(int(sx)-DOT_SIZE//2, int(sy)-DOT_SIZE//2,
-                          DOT_SIZE, DOT_SIZE)
+            ipx, ipy = world_to_pixel(
+                ov.current_loc[0], ov.current_loc[1], ov.xc, ov.yc)
+            if math.isfinite(ipx) and math.isfinite(ipy):
+                sx = ipx * ov.zoom + ov.offset_x
+                sy = ipy * ov.zoom + ov.offset_y
+                pl_outer = theme_q("player_outer_ring", QColor(255, 80, 80, 130))
+                pl_ring = theme_q("player_ring", QColor(180, 0, 0))
+                pl_fill = theme_q("player_fill", QColor(255, 50, 50))
+
+                p.setPen(QPen(pl_outer, 3))
+                p.setBrush(Qt.NoBrush)
+                p.drawEllipse(int(sx)-DOT_SIZE, int(sy)-DOT_SIZE,
+                              DOT_SIZE*2, DOT_SIZE*2)
+                ph = getattr(ov, "pulse_phase", 0.0)
+                for k in range(max(0, PULSE_RINGS)):
+                    t = ph + k * (math.pi / 2.2)
+                    wave = 0.5 * (1.0 + math.sin(t * PULSE_SPEED))
+                    rad = DOT_SIZE + 6 + k * 10 + wave * DOT_SIZE * PULSE_EXTENT
+                    ring_c = QColor(pl_outer)
+                    ring_c.setAlpha(int(30 + 120 * (1.0 - wave)))
+                    p.setPen(QPen(ring_c, 2))
+                    p.drawEllipse(int(sx - rad), int(sy - rad),
+                                  int(rad * 2), int(rad * 2))
+
+                p.setPen(QPen(pl_ring, 1))
+                p.setBrush(pl_fill)
+                p.drawEllipse(int(sx)-DOT_SIZE//2, int(sy)-DOT_SIZE//2,
+                              DOT_SIZE, DOT_SIZE)
 
         if ov.edit_mode:
             p.fillRect(0, TOP_BAR_HEIGHT, self.width(), 28, QColor(20, 120, 80, 210))
@@ -426,11 +673,11 @@ class MapCanvas(QWidget):
         tip.closeSubpath()
         path = path.united(tip)
         if highlight:
-            p.setPen(QPen(QColor(255, 220, 0), 2.5))
-            p.setBrush(QColor(255, 200, 0))
+            p.setPen(QPen(theme_q("pin_highlight_stroke", QColor(255, 220, 0)), 2.5))
+            p.setBrush(theme_q("pin_highlight_fill", QColor(255, 200, 0)))
         else:
-            p.setPen(QPen(QColor(100, 0, 0), 1.5))
-            p.setBrush(QColor(210, 30, 30))
+            p.setPen(QPen(theme_q("pin_stroke", QColor(100, 0, 0)), 1.5))
+            p.setBrush(theme_q("pin_fill", QColor(210, 30, 30)))
         p.drawPath(path)
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(255, 160, 160, 180))
@@ -446,13 +693,21 @@ class MapCanvas(QWidget):
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(0, 0, 0, 185))
         p.drawRoundedRect(lx - pad, ly - th + 3, tw + pad*2, th + 3, 4, 4)
-        p.setPen(QColor(0, 0, 0))
+        sh = theme_q("pin_label_shadow", QColor(0, 0, 0))
+        plab = theme_q("pin_label", QColor(255, 220, 80))
+        if highlight:
+            plab = theme_q("pin_highlight_stroke", QColor(255, 220, 0))
+        p.setPen(sh)
         p.drawText(lx+1, ly+1, name)
-        p.setPen(QColor(255, 220, 0) if highlight else QColor(255, 220, 80))
+        p.setPen(plab)
         p.drawText(lx, ly, name)
 
     def wheelEvent(self, event):
         ov = self.ov
+        if ov.calib_mode and LOCK_ZOOM_CAL and CAL_SNAP_ZOOM > 0:
+            ov.zoom = CAL_SNAP_ZOOM
+            self.update()
+            return
         old    = ov.zoom
         factor = (1 + ZOOM_STEP) if event.angleDelta().y() > 0 else (1 - ZOOM_STEP)
         ov.zoom = max(MIN_ZOOM, min(MAX_ZOOM, ov.zoom * factor))
@@ -476,10 +731,15 @@ class MapCanvas(QWidget):
             self.update()
         ix  = (event.x() - ov.offset_x) / ov.zoom
         iy  = (event.y() - ov.offset_y) / ov.zoom
-        txt = f"Px({int(ix)}, {int(iy)})"
+        mx, my = pixel_to_world(ix, iy, ov.xc, ov.yc)
+        parts = [f"Px={int(ix)} Py={int(iy)}"]
+        if math.isfinite(mx) and math.isfinite(my):
+            parts.append(f"Wx={mx:.1f} Wy={my:.1f}")
         if ov.current_loc:
-            txt += f"   Player({ov.current_loc[0]:.1f}, {ov.current_loc[1]:.1f})"
-        ov.coord_lbl.setText(txt)
+            parts.append(
+                f"Player X={ov.current_loc[0]:.1f} Y={ov.current_loc[1]:.1f}")
+        parts.append(f"Zoom {ov.zoom:.3f}")
+        ov.coord_lbl.setText("   ".join(parts))
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -496,7 +756,6 @@ class MapCanvas(QWidget):
 class MapOverlay(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(APP_NAME)
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
         self.setMinimumSize(300, 250)
 
@@ -506,6 +765,7 @@ class MapOverlay(QMainWindow):
         self.map_layers         = []
         self.layer_visible      = []
         self.current_loc        = None
+        self.current_game_z     = None
         self.zoom               = 1.0
         self.offset_x           = 0.0
         self.offset_y           = 0.0
@@ -525,15 +785,33 @@ class MapOverlay(QMainWindow):
 
         self.calibration_points = []
         self.xc = np.array([1.0, 0.0, 0.0])
-        self.zc = np.array([0.0, 1.0, 0.0])
+        self.yc = np.array([0.0, 1.0, 0.0])
         self.drop_pins          = []
+        self.named_markers      = []
+        self.pulse_phase        = 0.0
+        self._first_map_fit     = True
 
         self.sig = Signals()
         self.sig.repaint_needed.connect(self._on_repaint_needed)
         self.sig.map_loaded.connect(self._on_map_loaded)
 
+        self._geom_save_timer = QTimer(self)
+        self._geom_save_timer.setSingleShot(True)
+        self._geom_save_timer.timeout.connect(self._save_window_geometry)
+
         self._build_ui()
+        self._restore_window_geometry()
+        self._refresh_title()
         self._load_map(self.current_map_name)
+
+        self._pulse_timer = QTimer(self)
+        self._pulse_timer.setInterval(max(16, PULSE_INTERVAL_MS))
+        self._pulse_timer.timeout.connect(self._tick_pulse)
+        if PULSE_RINGS > 0:
+            self._pulse_timer.start()
+
+        sc = QShortcut(QKeySequence(TOGGLE_MAP_KEYS), self)
+        sc.activated.connect(self._toggle_window_visibility)
 
         self.running = True
         threading.Thread(target=self._watch_clipboard, daemon=True).start()
@@ -606,22 +884,15 @@ class MapOverlay(QMainWindow):
             self.layer_visible.append(True)
 
         self.calibration_points = self._load_calib(map_name)
-        self.xc, self.zc        = compute_affine_transform(self.calibration_points)
+        self.xc, self.yc        = compute_affine_transform(self.calibration_points)
         self.drop_pins          = self._load_pins(map_name)
+        self.named_markers      = self._load_named_markers(map_name)
 
-        # Use INI window size for zoom calculation so map fills window correctly
-        win_w = WIN_W
-        win_h = WIN_H
-
-        if self.map_layers and not self.map_layers[0].isNull():
-            fit_w = win_w / self.map_layers[0].width()
-            fit_h = win_h / self.map_layers[0].height()
-            self.zoom = max(min(fit_w, fit_h), MIN_ZOOM)
-        else:
-            self.zoom = 1.0
-        self.offset_x      = 0.0
-        self.offset_y      = 0.0
         self.last_click_px = None
+
+        if self._first_map_fit or not KEEP_VIEW:
+            self._fit_map_to_window()
+        self._first_map_fit = False
 
         self._set_calib_mode(False)
         self._set_pin_drop_mode(False)
@@ -633,15 +904,12 @@ class MapOverlay(QMainWindow):
         self.map_combo.blockSignals(False)
         self.map_combo.setEnabled(True)
 
-        for pix in self.map_layers:
-            if not pix.isNull():
-                self.resize(win_w, win_h)
-                break
-
         if self.calib_panel.isVisible():
             self._refresh_calib_list()
         if self.pin_panel.isVisible():
             self._refresh_pin_list()
+        if self.markers_panel.isVisible():
+            self._refresh_named_marker_list()
         if self.layer_panel.isVisible():
             self._rebuild_layer_panel_content()
 
@@ -683,6 +951,97 @@ class MapOverlay(QMainWindow):
             json.dump(self.drop_pins, open(f, "w"), indent=2)
         except Exception as e:
             print(f"Pin save error: {e}")
+
+    def _refresh_title(self):
+        self.setWindowTitle(f"{APP_NAME}  v{APP_VERSION}")
+
+    def _restore_window_geometry(self):
+        if not PERSIST_GEOMETRY:
+            self.resize(WIN_W, WIN_H)
+            return
+
+        try:
+            x = _CFG.getint("window", "win_x", fallback=100)
+            y = _CFG.getint("window", "win_y", fallback=100)
+            w = _CFG.getint("window", "win_w", fallback=WIN_W)
+            h = _CFG.getint("window", "win_h", fallback=WIN_H)
+
+            self.setGeometry(x, y, max(300, w), max(250, h))
+            return
+
+        except Exception as e:
+            print(f"[window] geometry restore failed: {e}")
+
+        self.resize(WIN_W, WIN_H)
+        
+    def _save_window_geometry(self):
+        if not PERSIST_GEOMETRY:
+            return
+
+        try:
+            if not _CFG.has_section("window"):
+                _CFG.add_section("window")
+
+            _CFG.set("window", "win_x", str(self.x()))
+            _CFG.set("window", "win_y", str(self.y()))
+            _CFG.set("window", "win_w", str(self.width()))
+            _CFG.set("window", "win_h", str(self.height()))
+
+            with open(_INI_PATH, "w", encoding="utf-8") as fp:
+                _CFG.write(fp)
+
+        except Exception as e:
+            print(f"[window] geometry save failed: {e}")
+
+    def _schedule_geom_save(self):
+        if PERSIST_GEOMETRY:
+            self._geom_save_timer.start(350)
+
+    def _fit_map_to_window(self):
+        cw = max(1, self.canvas.width() or self.width())
+        ch = max(1, self.canvas.height() or self.height() - TOP_BAR_HEIGHT)
+        if self.map_layers and not self.map_layers[0].isNull():
+            fit_w = cw / self.map_layers[0].width()
+            fit_h = ch / self.map_layers[0].height()
+            self.zoom = max(min(fit_w, fit_h), MIN_ZOOM)
+        else:
+            self.zoom = 1.0
+        self.offset_x = 0.0
+        self.offset_y = 0.0
+
+    def _tick_pulse(self):
+        self.pulse_phase = (self.pulse_phase + 0.12) % (math.tau * 2)
+        self.canvas.update()
+
+    def _toggle_window_visibility(self):
+        self.setVisible(not self.isVisible())
+
+    def _load_named_markers(self, map_name):
+        f = _markers_file(map_name)
+        if os.path.exists(f):
+            try:
+                with open(f, encoding="utf-8") as fp:
+                    data = json.load(fp)
+                out = []
+                for m in data:
+                    wy = float(m["wy"]) if "wy" in m else float(m["wz"])
+                    out.append({
+                        "name": str(m.get("name", "Marker")),
+                        "wx": float(m["wx"]),
+                        "wy": wy,
+                    })
+                return out
+            except Exception as e:
+                print(f"Named markers load error: {e}")
+        return []
+
+    def _save_named_markers(self):
+        f = _markers_file(self.current_map_name)
+        try:
+            with open(f, "w", encoding="utf-8") as fp:
+                json.dump(self.named_markers, fp, indent=2)
+        except Exception as e:
+            print(f"Named markers save error: {e}")
 
     # ===========================================================
     # Build UI
@@ -743,6 +1102,8 @@ class MapOverlay(QMainWindow):
         self.btn_layer_pan = mk("LAYERS", "#1e6e3a", "Show/hide layers panel", 60)
         self.btn_cal_list  = mk("CAL",    "#c0782a", "Show/hide calibration panel", 46)
         self.btn_pin_list  = mk("PINS",   "#c0392b", "Show/hide pins panel", 46)
+        self.btn_markers   = mk("MARK",   "#117a65", "Named world-coordinate markers (typed)", 50)
+        self.btn_update    = mk("UPD",    "#884ea0", "Download maps/settings (manifest URL in INI)", 40)
         self.btn_opacity   = mk(f"{int(DEFAULT_OPACITY*100)}%", "#444", "Cycle opacity", 44)
 
         for b, fn in [
@@ -752,6 +1113,8 @@ class MapOverlay(QMainWindow):
             (self.btn_layer_pan, self._toggle_layer_panel),
             (self.btn_cal_list,  self._toggle_calib_panel),
             (self.btn_pin_list,  self._toggle_pin_panel),
+            (self.btn_markers,   self._toggle_markers_panel),
+            (self.btn_update,    self._run_update_check),
             (self.btn_opacity,   self._cycle_opacity),
         ]:
             b.clicked.connect(fn)
@@ -788,6 +1151,9 @@ class MapOverlay(QMainWindow):
 
         self.pin_panel = self._make_pin_panel(root)
         self.pin_panel.hide()
+
+        self.markers_panel = self._make_markers_panel(root)
+        self.markers_panel.hide()
 
         self._relayout()
 
@@ -1097,6 +1463,101 @@ class MapOverlay(QMainWindow):
 
         return p
 
+    # ----------------------------------------------------------
+    # Named markers (typed world X / Z / optional Y)
+    # ----------------------------------------------------------
+    def _make_markers_panel(self, parent):
+        p = Panel(parent)
+        v = QVBoxLayout(p)
+        v.setContentsMargins(10, 10, 10, 10)
+        v.setSpacing(8)
+
+        lbl = QLabel("World markers")
+        lbl.setStyleSheet(
+            "color:#58d7be;font-size:14px;font-weight:bold;background:transparent;border:none;"
+        )
+        v.addWidget(lbl)
+
+        hint = QLabel(
+            "Map position only: /jumploc token 1 = X, token 3 = Y (same as player dot).\n"
+            "Game Z is for default layer selection elsewhere—not stored on markers. Colors: [colors] marker_* in INI."
+        )
+        hint.setStyleSheet(
+            "color:rgba(180,220,210,180);font-size:10px;font-family:Consolas,monospace;"
+            "background:rgba(0,0,0,80);border-radius:4px;padding:6px;border:none;"
+        )
+        hint.setWordWrap(True)
+        v.addWidget(hint)
+
+        grid = QWidget()
+        gv = QHBoxLayout(grid)
+        gv.setContentsMargins(0, 0, 0, 0)
+        gv.setSpacing(6)
+        self.marker_x_edit = QLineEdit()
+        self.marker_x_edit.setPlaceholderText("X (tok 1)")
+        self.marker_map_y_edit = QLineEdit()
+        self.marker_map_y_edit.setPlaceholderText("Y map (tok 3)")
+        for e in (self.marker_x_edit, self.marker_map_y_edit):
+            e.setFixedWidth(88)
+            e.setStyleSheet(
+                "QLineEdit{background:rgba(0,0,0,190);color:white;"
+                "border:1px solid rgba(255,255,255,50);border-radius:4px;"
+                "font-size:11px;padding:4px;}"
+            )
+        gv.addWidget(self.marker_x_edit)
+        gv.addWidget(self.marker_map_y_edit)
+        v.addWidget(grid)
+
+        self.marker_name_edit = QLineEdit()
+        self.marker_name_edit.setPlaceholderText("Name (e.g. corpse — PlayerName)")
+        self.marker_name_edit.setStyleSheet(
+            "QLineEdit{background:rgba(0,0,0,190);color:white;"
+            "border:1px solid rgba(255,255,255,50);border-radius:4px;"
+            "font-size:12px;padding:4px 7px;}"
+        )
+        v.addWidget(self.marker_name_edit)
+
+        row = QHBoxLayout()
+        add_b = QPushButton("Add marker")
+        add_b.setStyleSheet(
+            "QPushButton{background:#117a65;color:white;border:none;"
+            "font-size:11px;font-weight:bold;border-radius:4px;padding:6px;}"
+            "QPushButton:hover{background:#fff;color:#111;}"
+        )
+        add_b.clicked.connect(self._add_named_marker_from_fields)
+        row.addWidget(add_b)
+        v.addLayout(row)
+
+        self.markers_list = QListWidget()
+        self.markers_list.setStyleSheet(
+            "QListWidget{background:rgba(0,0,0,170);color:white;"
+            "border:1px solid rgba(255,255,255,30);border-radius:4px;"
+            "font-size:12px;font-family:Consolas,monospace;}"
+            "QListWidget::item{padding:3px 5px;}"
+            "QListWidget::item:selected{background:rgba(20,120,100,190);}"
+            "QListWidget::item:hover{background:rgba(255,255,255,18);}"
+        )
+        self.markers_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        v.addWidget(self.markers_list)
+
+        brow = QHBoxLayout()
+        for text, bg, fn in [
+            ("Delete Selected", "#8B2020", self._delete_selected_named_marker),
+            ("Clear All", "#5a1010", self._clear_all_named_markers),
+            ("Save", "#1e6e3a", self._save_named_markers_flash),
+        ]:
+            b = QPushButton(text)
+            b.setStyleSheet(
+                f"QPushButton{{background:{bg};color:white;border:none;"
+                f"font-size:11px;font-weight:bold;border-radius:4px;padding:5px 8px;}}"
+                f"QPushButton:hover{{background:#fff;color:#111;}}"
+            )
+            b.clicked.connect(fn)
+            brow.addWidget(b)
+        v.addLayout(brow)
+
+        return p
+
     # ===========================================================
     # Layout
     # ===========================================================
@@ -1111,6 +1572,7 @@ class MapOverlay(QMainWindow):
         self.layer_panel.setGeometry(w - pw - 6, py, pw, ph)
         self.calib_panel.setGeometry(w - pw - 6, py, pw, ph)
         self.pin_panel.setGeometry(w - pw - 6, py, pw, ph)
+        self.markers_panel.setGeometry(w - pw - 6, py, pw, ph)
         if not self.flash_lbl.isHidden():
             self.flash_lbl.adjustSize()
             self.flash_lbl.move(
@@ -1121,6 +1583,11 @@ class MapOverlay(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._relayout()
+        self._schedule_geom_save()
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        self._schedule_geom_save()
 
     # ===========================================================
     # Map switching
@@ -1135,6 +1602,10 @@ class MapOverlay(QMainWindow):
     # ===========================================================
 
     def _zoom_in(self):
+        if self.calib_mode and LOCK_ZOOM_CAL and CAL_SNAP_ZOOM > 0:
+            self.zoom = CAL_SNAP_ZOOM
+            self.canvas.update()
+            return
         old = self.zoom
         self.zoom = min(self.zoom * (1 + ZOOM_STEP), MAX_ZOOM)
         cx, cy = self.canvas.width()/2, self.canvas.height()/2
@@ -1143,6 +1614,10 @@ class MapOverlay(QMainWindow):
         self.canvas.update()
 
     def _zoom_out(self):
+        if self.calib_mode and LOCK_ZOOM_CAL and CAL_SNAP_ZOOM > 0:
+            self.zoom = CAL_SNAP_ZOOM
+            self.canvas.update()
+            return
         old = self.zoom
         self.zoom = max(self.zoom * (1 - ZOOM_STEP), MIN_ZOOM)
         cx, cy = self.canvas.width()/2, self.canvas.height()/2
@@ -1153,10 +1628,10 @@ class MapOverlay(QMainWindow):
     def _center_on_player(self):
         if self.current_loc is None:
             return
-        px, pz = world_to_pixel(
-            self.current_loc[0], self.current_loc[1], self.xc, self.zc)
-        self.offset_x = self.canvas.width()/2  - px * self.zoom
-        self.offset_y = self.canvas.height()/2 - pz * self.zoom
+        ipx, ipy = world_to_pixel(
+            self.current_loc[0], self.current_loc[1], self.xc, self.yc)
+        self.offset_x = self.canvas.width()/2  - ipx * self.zoom
+        self.offset_y = self.canvas.height()/2 - ipy * self.zoom
         self.canvas.update()
 
     # ===========================================================
@@ -1185,6 +1660,7 @@ class MapOverlay(QMainWindow):
             self._rebuild_layer_panel_content()
             self.calib_panel.hide()
             self.pin_panel.hide()
+            self.markers_panel.hide()
 
     def _toggle_calib_panel(self):
         vis = not self.calib_panel.isVisible()
@@ -1194,6 +1670,7 @@ class MapOverlay(QMainWindow):
             self._refresh_calib_list()
             self.pin_panel.hide()
             self.layer_panel.hide()
+            self.markers_panel.hide()
             self._set_pin_drop_mode(False)
 
     def _toggle_pin_panel(self):
@@ -1203,7 +1680,154 @@ class MapOverlay(QMainWindow):
             self._refresh_pin_list()
             self.calib_panel.hide()
             self.layer_panel.hide()
+            self.markers_panel.hide()
             self._set_calib_mode(False)
+
+    def _toggle_markers_panel(self):
+        vis = not self.markers_panel.isVisible()
+        self.markers_panel.setVisible(vis)
+        if vis:
+            self._refresh_named_marker_list()
+            self.calib_panel.hide()
+            self.layer_panel.hide()
+            self.pin_panel.hide()
+            self._set_calib_mode(False)
+            self._set_pin_drop_mode(False)
+
+    def _refresh_named_marker_list(self):
+        self.markers_list.clear()
+        for m in self.named_markers:
+            if "wy" in m:
+                map_y = float(m["wy"])
+            elif "wz" in m:
+                map_y = float(m["wz"])
+            else:
+                continue
+            self.markers_list.addItem(
+                f"◎ {m['name']}  X={m['wx']:.2f} Y={map_y:.2f}")
+
+    def _add_named_marker_from_fields(self):
+        try:
+            wx = float(self.marker_x_edit.text().strip())
+            wmy = float(self.marker_map_y_edit.text().strip())
+        except ValueError:
+            self._flash("Markers: enter valid X (token 1) and Y map (token 3).")
+            return
+        name = self.marker_name_edit.text().strip() or "Marker"
+        rec = {"name": name, "wx": wx, "wy": wmy}
+        self.named_markers.append(rec)
+        self.marker_x_edit.clear()
+        self.marker_map_y_edit.clear()
+        self.marker_name_edit.clear()
+        self._refresh_named_marker_list()
+        self._save_named_markers()
+        self._flash(f"Marker '{name}' added.")
+        self.canvas.update()
+
+    def _delete_selected_named_marker(self):
+        row = self.markers_list.currentRow()
+        if 0 <= row < len(self.named_markers):
+            self.named_markers.pop(row)
+            self._refresh_named_marker_list()
+            self._save_named_markers()
+            self._flash("Marker removed.")
+            self.canvas.update()
+        else:
+            self._flash("Select a marker first.")
+
+    def _clear_all_named_markers(self):
+        if not self.named_markers:
+            return
+        self.named_markers.clear()
+        self._refresh_named_marker_list()
+        self._save_named_markers()
+        self._flash("All markers cleared.")
+        self.canvas.update()
+
+    def _save_named_markers_flash(self):
+        self._save_named_markers()
+        self._flash(f"Saved {len(self.named_markers)} markers.")
+
+    def _run_update_check(self):
+        base = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) \
+            else os.path.dirname(os.path.abspath(__file__))
+        if not UPDATE_MANIFEST_URL:
+            QMessageBox.information(
+                self,
+                "Update",
+                "Set update/manifest_url in Settings\\config.ini to a raw JSON URL "
+                "(e.g. GitHub raw content for update_manifest.json).\n\n"
+                "See CHANGELOG.md for the manifest file format.")
+            return
+        try:
+            req = urllib.request.Request(
+                UPDATE_MANIFEST_URL,
+                headers={"User-Agent": f"{APP_NAME}/{APP_VERSION}"},
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+            manifest = json.loads(raw)
+        except urllib.error.URLError as e:
+            QMessageBox.warning(self, "Update", f"Could not download manifest:\n{e}")
+            return
+        except json.JSONDecodeError as e:
+            QMessageBox.warning(self, "Update", f"Invalid manifest JSON:\n{e}")
+            return
+        except Exception as e:
+            QMessageBox.warning(self, "Update", f"Error:\n{e}")
+            return
+
+        remote_ver = manifest.get("version", "")
+        files = manifest.get("files", [])
+        if not files:
+            QMessageBox.information(self, "Update", "Manifest contains no files list.")
+            return
+
+        updated = []
+        errors = []
+        base_abs = os.path.abspath(base)
+        for ent in files:
+            rel = ent.get("path") or ent.get("local")
+            url = ent.get("url")
+            if not rel or not url:
+                continue
+            rel = str(rel).replace("\\", "/")
+            dest = os.path.normpath(os.path.join(base, *rel.split("/")))
+            dest_abs = os.path.abspath(dest)
+            if not (dest_abs == base_abs or dest_abs.startswith(base_abs + os.sep)):
+                errors.append(f"Unsafe path skipped: {rel}")
+                continue
+            destdir = os.path.dirname(dest)
+            if destdir:
+                os.makedirs(destdir, exist_ok=True)
+            try:
+                exp_size = ent.get("size")
+                if os.path.isfile(dest):
+                    if exp_size is not None and int(exp_size) == os.path.getsize(dest):
+                        continue
+                    if exp_size is None and not ent.get("overwrite"):
+                        continue
+                part = dest + ".download_part"
+                urllib.request.urlretrieve(url, part)
+                os.replace(part, dest)
+                updated.append(rel)
+            except Exception as e:
+                errors.append(f"{rel}: {e}")
+
+        lines = []
+        if remote_ver:
+            lines.append(f"Manifest version: {remote_ver}\n")
+        if updated:
+            lines.append("Updated:\n" + "\n".join(updated[:35]))
+            if len(updated) > 35:
+                lines.append(f"\n... +{len(updated) - 35} more")
+        else:
+            lines.append("No files downloaded (already match manifest, or no URLs).")
+        if errors:
+            lines.append("\nErrors:\n" + "\n".join(errors[:12]))
+        QMessageBox.information(self, "Update", "\n".join(lines))
+        if updated:
+            self._load_map(self.current_map_name)
 
     # ===========================================================
     # Calibration mode
@@ -1217,6 +1841,13 @@ class MapOverlay(QMainWindow):
         if enabled:
             self._set_pin_drop_mode(False)
             self._exit_edit_mode()
+            if CAL_SNAP_ZOOM > 0:
+                old = self.zoom
+                self.zoom = CAL_SNAP_ZOOM
+                cx = self.canvas.width() / 2.0
+                cy = self.canvas.height() / 2.0
+                self.offset_x = cx - (cx - self.offset_x) * (self.zoom / old)
+                self.offset_y = cy - (cy - self.offset_y) * (self.zoom / old)
         label = "■  Disable Calibration Mode" if enabled else "▶  Enable Calibration Mode"
         self.btn_calib_toggle.setText(label)
         self.btn_calib_toggle.setChecked(enabled)
@@ -1288,7 +1919,9 @@ class MapOverlay(QMainWindow):
         self.edit_index = index
         if edit_type == "cal":
             pt = self.calibration_points[index]
-            self._flash(f"EDIT: double-click new location for cal pt #{index+1}  W({pt[2]:.1f},{pt[3]:.1f})")
+            self._flash(
+                f"EDIT: double-click new location for cal pt #{index+1}  "
+                f"X={pt[2]:.1f} Y={pt[3]:.1f}")
         else:
             name = self.drop_pins[index]["name"]
             self._flash(f"EDIT: double-click new location for pin \"{name}\"")
@@ -1306,23 +1939,23 @@ class MapOverlay(QMainWindow):
 
     def _refresh_calib_list(self):
         self.calib_list.clear()
-        for i, (px, pz, wx, wz) in enumerate(self.calibration_points):
+        for i, (img_x, img_y, map_x, map_y) in enumerate(self.calibration_points):
             self.calib_list.addItem(
-                f"#{i+1}  Px({int(px)},{int(pz)})  W({wx:.1f},{wz:.1f})"
+                f"#{i+1}  Px={int(img_x)} Py={int(img_y)}  X={map_x:.1f} Y={map_y:.1f}"
             )
 
     def _refresh_pin_list(self):
         self.pin_list.clear()
         for pin in self.drop_pins:
             self.pin_list.addItem(
-                f"📍 {pin['name']}  Px({int(pin['px'])},{int(pin['py'])})"
+                f"📍 {pin['name']}  Px={int(pin['px'])} Py={int(pin['py'])}"
             )
 
     def _delete_selected_calib(self):
         row = self.calib_list.currentRow()
         if 0 <= row < len(self.calibration_points):
             self.calibration_points.pop(row)
-            self.xc, self.zc = compute_affine_transform(self.calibration_points)
+            self.xc, self.yc = compute_affine_transform(self.calibration_points)
             self._refresh_calib_list()
             self.canvas.update()
             self._flash("Calibration point deleted.")
@@ -1331,7 +1964,7 @@ class MapOverlay(QMainWindow):
         if not self.calibration_points:
             return
         self.calibration_points.clear()
-        self.xc, self.zc = compute_affine_transform(self.calibration_points)
+        self.xc, self.yc = compute_affine_transform(self.calibration_points)
         self._refresh_calib_list()
         self.canvas.update()
         self._flash("All calibration points cleared.")
@@ -1376,24 +2009,26 @@ class MapOverlay(QMainWindow):
 
     def handle_double_click(self, img_x, img_y):
         x_click = int(round(img_x))
-        z_click = int(round(img_y))
-        self.last_click_px = (x_click, z_click)
+        y_click = int(round(img_y))
+        self.last_click_px = (x_click, y_click)
 
         if self.edit_mode:
             if self.edit_type == "cal" and 0 <= self.edit_index < len(self.calibration_points):
                 old = self.calibration_points[self.edit_index]
-                self.calibration_points[self.edit_index] = (x_click, z_click, old[2], old[3])
-                self.xc, self.zc = compute_affine_transform(self.calibration_points)
+                self.calibration_points[self.edit_index] = (x_click, y_click, old[2], old[3])
+                self.xc, self.yc = compute_affine_transform(self.calibration_points)
                 self._refresh_calib_list()
                 self._save_calib()
-                self._flash(f"Cal pt #{self.edit_index+1} moved to Px({x_click},{z_click}) — saved.")
+                self._flash(
+                    f"Cal pt #{self.edit_index+1} moved to Px={x_click} Py={y_click} — saved.")
             elif self.edit_type == "pin" and 0 <= self.edit_index < len(self.drop_pins):
                 self.drop_pins[self.edit_index]["px"] = x_click
-                self.drop_pins[self.edit_index]["py"] = z_click
+                self.drop_pins[self.edit_index]["py"] = y_click
                 name = self.drop_pins[self.edit_index]["name"]
                 self._refresh_pin_list()
                 self._save_pins()
-                self._flash(f"Pin \"{name}\" moved to Px({x_click},{z_click}) — saved.")
+                self._flash(
+                    f"Pin \"{name}\" moved to Px={x_click} Py={y_click} — saved.")
             self._exit_edit_mode()
             self.canvas.update()
             return
@@ -1405,23 +2040,32 @@ class MapOverlay(QMainWindow):
                 self.canvas.update()
                 return
             parts = text.split()
+            need = _jumploc_required_token_count()
+            if len(parts) <= need:
+                self._flash(f"/jumploc needs at least {need + 1} tokens.")
+                self.canvas.update()
+                return
             try:
-                xw = float(parts[1])
-                zw = float(parts[3])
+                map_x, map_y = jumploc_map_xy(parts)
                 if self.calibration_points:
-                    dists = [(np.hypot(p[0]-x_click, p[1]-z_click), i)
+                    dists = [(np.hypot(p[0]-x_click, p[1]-y_click), i)
                              for i, p in enumerate(self.calibration_points)]
                     min_d, ni = min(dists)
                     if min_d <= UPDATE_THRESHOLD:
-                        self.calibration_points[ni] = (x_click, z_click, xw, zw)
-                        msg = f"Updated pt #{ni+1}: Px({x_click},{z_click}) W({xw:.1f},{zw:.1f})"
+                        self.calibration_points[ni] = (x_click, y_click, map_x, map_y)
+                        msg = (
+                            f"Updated pt #{ni+1}: Px={x_click} Py={y_click} "
+                            f"X={map_x:.1f} Y={map_y:.1f}")
                     else:
-                        self.calibration_points.append((x_click, z_click, xw, zw))
-                        msg = f"Added pt #{len(self.calibration_points)}: Px({x_click},{z_click}) W({xw:.1f},{zw:.1f})"
+                        self.calibration_points.append((x_click, y_click, map_x, map_y))
+                        msg = (
+                            f"Added pt #{len(self.calibration_points)}: Px={x_click} Py={y_click} "
+                            f"X={map_x:.1f} Y={map_y:.1f}")
                 else:
-                    self.calibration_points.append((x_click, z_click, xw, zw))
-                    msg = f"Added pt #1: Px({x_click},{z_click}) W({xw:.1f},{zw:.1f})"
-                self.xc, self.zc = compute_affine_transform(self.calibration_points)
+                    self.calibration_points.append((x_click, y_click, map_x, map_y))
+                    msg = (
+                        f"Added pt #1: Px={x_click} Py={y_click} X={map_x:.1f} Y={map_y:.1f}")
+                self.xc, self.yc = compute_affine_transform(self.calibration_points)
                 self._refresh_calib_list()
                 self._flash(msg)
             except Exception as e:
@@ -1429,10 +2073,10 @@ class MapOverlay(QMainWindow):
 
         elif self.pin_drop_mode:
             name = self.pending_pin_name or f"Pin {len(self.drop_pins)+1}"
-            self.drop_pins.append({"name": name, "px": x_click, "py": z_click})
+            self.drop_pins.append({"name": name, "px": x_click, "py": y_click})
             self._refresh_pin_list()
             self._save_pins()
-            self._flash(f"📍 '{name}' placed at Px({x_click},{z_click})")
+            self._flash(f"📍 '{name}' placed at Px={x_click} Py={y_click}")
             self.pin_name_edit.clear()
             self.pending_pin_name = ""
             self._set_pin_drop_mode(False)
@@ -1466,11 +2110,15 @@ class MapOverlay(QMainWindow):
                 if text != last and text.startswith("/jumploc"):
                     last = text
                     parts = text.split()
-                    x = float(parts[1])
-                    z = float(parts[3])
-                    self.current_loc = (x, z)
+                    need = _jumploc_required_token_count()
+                    if len(parts) <= need:
+                        time.sleep(0.1)
+                        continue
+                    map_x, map_y = jumploc_map_xy(parts)
+                    self.current_loc = (map_x, map_y)
+                    self.current_game_z = jumploc_game_z(parts)
                     self.sig.repaint_needed.emit()
-            except:
+            except Exception:
                 pass
             time.sleep(0.1)
 
@@ -1478,6 +2126,7 @@ class MapOverlay(QMainWindow):
         self.canvas.update()
 
     def closeEvent(self, event):
+        self._save_window_geometry()
         self.running = False
         QApplication.quit()
 

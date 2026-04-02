@@ -1,0 +1,368 @@
+{
+  "version": "3.2.0.0",
+  "files": [
+    {
+      "path": "Settings/calibration_black_rose_keep.json",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/calibration_black_rose_keep.json",
+      "overwrite": true
+    },
+    {
+      "path": "Settings/calibration_goblin_cave.json",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/calibration_goblin_cave.json",
+      "overwrite": true
+    },
+    {
+      "path": "Settings/calibration_halnir_cave.json",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/calibration_halnir_cave.json",
+      "overwrite": true
+    },
+    {
+      "path": "Settings/calibration_main_map.json",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/calibration_main_map.json",
+      "overwrite": true
+    },
+    {
+      "path": "Settings/calibration_nightfall_crypt.json",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/calibration_nightfall_crypt.json",
+      "overwrite": true
+    },
+    {
+      "path": "Settings/calibration_wildmound_cradle.json",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/calibration_wildmound_cradle.json",
+      "overwrite": true
+    },
+    {
+      "path": "Settings/config.ini",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/config.ini",
+      "overwrite": true
+    },
+    {
+      "path": "Settings/named_markers_main_map.json",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/named_markers_main_map.json",
+      "overwrite": true
+    },
+    {
+      "path": "Settings/pins_main_map.json",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/pins_main_map.json",
+      "overwrite": true
+    },
+    {
+      "path": "Maps/BRK_1_Upper_Dungeon_Area_z6.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_1_Upper_Dungeon_Area_z6.png",
+      "size": 1233545,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_1_Upper_Dungeon_Area_z6_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_1_Upper_Dungeon_Area_z6_4k.png",
+      "size": 148538,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_1_Upper_Dungeon_Area_z6_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_1_Upper_Dungeon_Area_z6_8k.png",
+      "size": 442099,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_2_Mid_Dungeon_Area_z6.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_2_Mid_Dungeon_Area_z6.png",
+      "size": 1099823,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_2_Mid_Dungeon_Area_z6_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_2_Mid_Dungeon_Area_z6_4k.png",
+      "size": 134446,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_2_Mid_Dungeon_Area_z6_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_2_Mid_Dungeon_Area_z6_8k.png",
+      "size": 403124,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_3_Lower_Dungeon_Area_1_z6.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_3_Lower_Dungeon_Area_1_z6.png",
+      "size": 913861,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_3_Lower_Dungeon_Area_1_z6_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_3_Lower_Dungeon_Area_1_z6_4k.png",
+      "size": 100360,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_3_Lower_Dungeon_Area_1_z6_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_3_Lower_Dungeon_Area_1_z6_8k.png",
+      "size": 317162,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_4_Lower_Dungeon_Area_2_z6.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_4_Lower_Dungeon_Area_2_z6.png",
+      "size": 1070710,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_4_Lower_Dungeon_Area_2_z6_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_4_Lower_Dungeon_Area_2_z6_4k.png",
+      "size": 124937,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_4_Lower_Dungeon_Area_2_z6_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_4_Lower_Dungeon_Area_2_z6_8k.png",
+      "size": 381115,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_5_Dungeon_Reference_Layer_z6.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_5_Dungeon_Reference_Layer_z6.png",
+      "size": 2518060,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_5_Dungeon_Reference_Layer_z6_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_5_Dungeon_Reference_Layer_z6_4k.png",
+      "size": 384601,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/BRK_5_Dungeon_Reference_Layer_z6_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/BRK_5_Dungeon_Reference_Layer_z6_8k.png",
+      "size": 1018609,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HC_MAP_L1_UpperArea_z7.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HC_MAP_L1_UpperArea_z7.png",
+      "size": 2395595,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HC_MAP_L1_UpperArea_z7_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HC_MAP_L1_UpperArea_z7_4k.png",
+      "size": 170745,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HC_MAP_L1_UpperArea_z7_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HC_MAP_L1_UpperArea_z7_8k.png",
+      "size": 447864,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HC_MAP_L23_MidArea_z7.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HC_MAP_L23_MidArea_z7.png",
+      "size": 2090205,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HC_MAP_L23_MidArea_z7_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HC_MAP_L23_MidArea_z7_4k.png",
+      "size": 137212,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HC_MAP_L23_MidArea_z7_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HC_MAP_L23_MidArea_z7_8k.png",
+      "size": 360692,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HC_MAP_L4_LowerArea_z7.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HC_MAP_L4_LowerArea_z7.png",
+      "size": 1645826,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HC_MAP_L4_LowerArea_z7_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HC_MAP_L4_LowerArea_z7_4k.png",
+      "size": 91359,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HC_MAP_L4_LowerArea_z7_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HC_MAP_L4_LowerArea_z7_8k.png",
+      "size": 257894,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HGC_Lower_clear_z6.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HGC_Lower_clear_z6.png",
+      "size": 391854,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HGC_Lower_clear_z6_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HGC_Lower_clear_z6_4k.png",
+      "size": 62281,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HGC_Lower_clear_z6_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HGC_Lower_clear_z6_8k.png",
+      "size": 185818,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HGC_Mid_clear_z6.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HGC_Mid_clear_z6.png",
+      "size": 616430,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HGC_Mid_clear_z6_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HGC_Mid_clear_z6_4k.png",
+      "size": 105655,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HGC_Mid_clear_z6_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HGC_Mid_clear_z6_8k.png",
+      "size": 300054,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HGC_Upper_clear_z6.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HGC_Upper_clear_z6.png",
+      "size": 1141963,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HGC_Upper_clear_z6_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HGC_Upper_clear_z6_4k.png",
+      "size": 229143,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/HGC_Upper_clear_z6_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/HGC_Upper_clear_z6_8k.png",
+      "size": 610603,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/NFC_01_Lower2_z5.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/NFC_01_Lower2_z5.png",
+      "size": 1731011,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/NFC_01_Lower2_z5_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/NFC_01_Lower2_z5_4k.png",
+      "size": 1166034,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/NFC_02_Lower1_z5.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/NFC_02_Lower1_z5.png",
+      "size": 95500,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/NFC_02_Lower1_z5_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/NFC_02_Lower1_z5_4k.png",
+      "size": 66166,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/NFC_03_Mid_z5.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/NFC_03_Mid_z5.png",
+      "size": 2172671,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/NFC_03_Mid_z5_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/NFC_03_Mid_z5_4k.png",
+      "size": 1536812,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/NFC_04_Upper_z5.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/NFC_04_Upper_z5.png",
+      "size": 119362,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/NFC_04_Upper_z5_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/NFC_04_Upper_z5_4k.png",
+      "size": 81791,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/WMC_01_Lower_Dungeon_z5.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/WMC_01_Lower_Dungeon_z5.png",
+      "size": 233527,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/WMC_01_Lower_Dungeon_z5_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/WMC_01_Lower_Dungeon_z5_4k.png",
+      "size": 181733,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/WMC_02_Mid_Dungeon_z5.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/WMC_02_Mid_Dungeon_z5.png",
+      "size": 5167947,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/WMC_02_Mid_Dungeon_z5_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/WMC_02_Mid_Dungeon_z5_4k.png",
+      "size": 3444846,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/WMC_03_Upper_Dungeon_z5.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/WMC_03_Upper_Dungeon_z5.png",
+      "size": 193355,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/WMC_03_Upper_Dungeon_z5_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/WMC_03_Upper_Dungeon_z5_4k.png",
+      "size": 134132,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/WMC_0_Reference_Layer_z5.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/WMC_0_Reference_Layer_z5.png",
+      "size": 301082,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/WMC_0_Reference_Layer_z5_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/WMC_0_Reference_Layer_z5_4k.png",
+      "size": 269811,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/World_z9.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/World_z9.png",
+      "size": 11663399,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/World_z9_.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/World_z9_.png",
+      "size": 68544957,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/World_z9_4k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/World_z9_4k.png",
+      "size": 1474134,
+      "overwrite": false
+    },
+    {
+      "path": "Maps/World_z9_8k.png",
+      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/World_z9_8k.png",
+      "size": 4358895,
+      "overwrite": false
+    }
+  ]
+}

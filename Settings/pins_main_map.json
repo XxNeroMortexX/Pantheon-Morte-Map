@@ -6,12 +6,27 @@
   },
   {
     "name": "HC Bind Stone",
-    "px": 2327,
-    "py": 1327
+    "px": 2338,
+    "py": 1323
   },
   {
     "name": "HC Poral",
     "px": 2345,
     "py": 1302
+  },
+  {
+    "name": "Spiders Camp",
+    "px": 2499,
+    "py": 1420
+  },
+  {
+    "name": "Cleric Spells",
+    "px": 2547,
+    "py": 1322
+  },
+  {
+    "name": "Mount Quest",
+    "px": 2593,
+    "py": 1333
   }
 ]
