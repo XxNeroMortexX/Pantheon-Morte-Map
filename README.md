@@ -4,7 +4,7 @@
   <tr>
     <td align="center">
       <b>Main Window</b><br>
-      <img src="images/Main_Window.png" width="400">
+      <img src="images/Map_Markers.png" width="400">
     </td>
     <td align="center">
       <b>Maps Layers</b><br>
@@ -25,7 +25,7 @@
 
 <p align="center">
   <b>Map Markers</b><br>
-  <img src="images/Map_Markers.png" width="450">
+  <img src="images/Main_Window.png" width="450">
 </p>
 
 
@@ -35,7 +35,7 @@
 
 **Pantheon Morte Map** is a Windows tool for mapping, calibrating, and managing points on the Pantheon map. Use it to accurately locate your position and track points of interest.
 
-> ⚠️ **Important:** You must be out of the game before updating your position. Always use `/loc` in-game to refresh your location.
+> ⚠️ **Important:** You must be in the game before updating your position. Always use `/loc` in-game to refresh your location.
 
 ---
 
