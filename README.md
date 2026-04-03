@@ -3,7 +3,7 @@
 <table align="center">
   <tr>
     <td align="center">
-      <b>Main Window</b><br>
+      <b>Map Markers</b><br>
       <img src="images/Map_Markers.png" width="400">
     </td>
     <td align="center">
@@ -24,7 +24,7 @@
 </table>
 
 <p align="center">
-  <b>Map Markers</b><br>
+  <b>Main Window</b><br>
   <img src="images/Main_Window.png" width="450">
 </p>
 
