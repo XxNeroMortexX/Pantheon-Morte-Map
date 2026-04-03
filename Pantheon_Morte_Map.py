@@ -1,6 +1,6 @@
 # ==============================================================
 # Pantheon Morte Map Tool
-# Version: 3.2
+# Version: 3.2.1.0
 # Created By: NeroMorte (AKA: Morte)
 # Description: Python tool for map overlay with calibration, pins, layers
 # Build Instructions:
@@ -21,6 +21,8 @@ import pyperclip
 import numpy as np
 import urllib.request
 import urllib.error
+from PyQt5.QtWidgets import QGraphicsDropShadowEffect
+from PyQt5.QtGui import QColor
 
 def resource_path(relative_path):
     """Get the absolute path for files when running as EXE or script."""
@@ -349,9 +351,9 @@ UPDATE_MANIFEST_URL = _CFG.get   ("update", "manifest_url", fallback="").strip()
 APP_NAME         = "Pantheon Morte Map"
 APP_AUTHOR       = "NeroMorte (AKA Morte)"
 APP_DESCRIPTION  = "Pantheon Morte Map Viewer"
-APP_VERSION      = "3.2.0.0"
+APP_VERSION      = "3.2.1.0"
 APP_COPYRIGHT    = "© 2026 NeroMorte"
-APP_FILENAME     = f"Pantheon_Morte_Map[{APP_VERSION}].exe"
+APP_FILENAME     = "Pantheon_Morte_Map[3.2.1.0].exe"
 
 _RESOLUTION_MAP = {
     "720p":  1280,
@@ -540,23 +542,24 @@ class MapCanvas(QWidget):
         cal_edit_f = theme_q("cal_edit_fill", QColor(255, 240, 100, 220))
         lbl_shadow = QColor(0, 0, 0)
 
-        for idx, (img_x, img_y, map_x, map_y) in enumerate(ov.calibration_points):
-            sx = img_x * ov.zoom + ov.offset_x
-            sy = img_y * ov.zoom + ov.offset_y
-            if ov.edit_mode and ov.edit_type == "cal" and ov.edit_index == idx:
-                p.setPen(QPen(cal_edit_s, 3))
-                p.setBrush(cal_edit_f)
-            else:
-                p.setPen(QPen(cal_stroke, 2))
-                p.setBrush(cal_fill)
-            p.drawEllipse(int(sx) - CALIB_DOT_SIZE//2,
-                          int(sy) - CALIB_DOT_SIZE//2,
-                          CALIB_DOT_SIZE, CALIB_DOT_SIZE)
-            lx, ly = int(sx) + CALIB_DOT_SIZE//2 + 3, int(sy) + 5
-            p.setPen(lbl_shadow)
-            p.drawText(lx+1, ly+1, str(idx+1))
-            p.setPen(cal_label)
-            p.drawText(lx, ly, str(idx+1))
+        if ov.show_cal_points:
+            for idx, (img_x, img_y, map_x, map_y) in enumerate(ov.calibration_points):
+                sx = img_x * ov.zoom + ov.offset_x
+                sy = img_y * ov.zoom + ov.offset_y
+                if ov.edit_mode and ov.edit_type == "cal" and ov.edit_index == idx:
+                    p.setPen(QPen(cal_edit_s, 3))
+                    p.setBrush(cal_edit_f)
+                else:
+                    p.setPen(QPen(cal_stroke, 2))
+                    p.setBrush(cal_fill)
+                p.drawEllipse(int(sx) - CALIB_DOT_SIZE//2,
+                              int(sy) - CALIB_DOT_SIZE//2,
+                              CALIB_DOT_SIZE, CALIB_DOT_SIZE)
+                lx, ly = int(sx) + CALIB_DOT_SIZE//2 + 3, int(sy) + 5
+                p.setPen(lbl_shadow)
+                p.drawText(lx+1, ly+1, str(idx+1))
+                p.setPen(cal_label)
+                p.drawText(lx, ly, str(idx+1))
 
         if ov.last_click_px:
             cpx, cpy = ov.last_click_px
@@ -576,33 +579,35 @@ class MapCanvas(QWidget):
         mr = theme_q("marker_ring", QColor(0, 168, 140))
         mlab = theme_q("marker_label", QColor(176, 255, 240))
         ms = max(8, DOT_SIZE - 2)
-        for m in ov.named_markers:
-            if "wy" in m:
-                map_y = float(m["wy"])
-            elif "wz" in m:
-                map_y = float(m["wz"])
-            else:
-                continue
-            ipx, ipy = world_to_pixel(float(m["wx"]), map_y, ov.xc, ov.yc)
-            if not (math.isfinite(ipx) and math.isfinite(ipy)):
-                continue
-            sx = ipx * ov.zoom + ov.offset_x
-            sy = ipy * ov.zoom + ov.offset_y
-            p.setPen(QPen(mr, 2))
-            p.setBrush(mf)
-            p.drawEllipse(int(sx) - ms, int(sy) - ms, ms * 2, ms * 2)
-            p.setBrush(Qt.NoBrush)
-            p.drawEllipse(int(sx) - ms - 3, int(sy) - ms - 3, ms * 2 + 6, ms * 2 + 6)
-            nm = m.get("name") or "Marker"
-            sub = f"{nm}  X={float(m['wx']):.1f} Y={map_y:.1f}"
-            p.setPen(lbl_shadow)
-            p.drawText(int(sx) - 40, int(sy) - ms - 6 + 1, sub)
-            p.setPen(mlab)
-            p.drawText(int(sx) - 40, int(sy) - ms - 6, sub)
+        if ov.show_markers:
+            for m in ov.named_markers:
+                if "wy" in m:
+                    map_y = float(m["wy"])
+                elif "wz" in m:
+                    map_y = float(m["wz"])
+                else:
+                    continue
+                ipx, ipy = world_to_pixel(float(m["wx"]), map_y, ov.xc, ov.yc)
+                if not (math.isfinite(ipx) and math.isfinite(ipy)):
+                    continue
+                sx = ipx * ov.zoom + ov.offset_x
+                sy = ipy * ov.zoom + ov.offset_y
+                p.setPen(QPen(mr, 2))
+                p.setBrush(mf)
+                p.drawEllipse(int(sx) - ms, int(sy) - ms, ms * 2, ms * 2)
+                p.setBrush(Qt.NoBrush)
+                p.drawEllipse(int(sx) - ms - 3, int(sy) - ms - 3, ms * 2 + 6, ms * 2 + 6)
+                nm = m.get("name") or "Marker"
+                sub = f"{nm}"
+                p.setPen(lbl_shadow)
+                p.drawText(int(sx) - 40, int(sy) - ms - 6 + 1, sub)
+                p.setPen(mlab)
+                p.drawText(int(sx) - 40, int(sy) - ms - 6, sub)
 
-        for i, pin in enumerate(ov.drop_pins):
-            highlight = ov.edit_mode and ov.edit_type == "pin" and ov.edit_index == i
-            self._draw_pin(p, pin["px"], pin["py"], pin["name"], highlight=highlight)
+        if ov.show_pins:
+            for i, pin in enumerate(ov.drop_pins):
+                highlight = ov.edit_mode and ov.edit_type == "pin" and ov.edit_index == i
+                self._draw_pin(p, pin["px"], pin["py"], pin["name"], highlight=highlight)
 
         if ov.current_loc is not None:
             ipx, ipy = world_to_pixel(
@@ -722,25 +727,39 @@ class MapCanvas(QWidget):
             self.ov.last_mouse = event.pos()
 
     def mouseMoveEvent(self, event):
-        ov = self.ov
+        ov = self.ov  # MapOverlay instance
+
+        # Handle panning
         if ov.panning:
             delta = event.pos() - ov.last_mouse
-            ov.offset_x  += delta.x()
-            ov.offset_y  += delta.y()
+            ov.offset_x += delta.x()
+            ov.offset_y += delta.y()
             ov.last_mouse = event.pos()
             self.update()
-        ix  = (event.x() - ov.offset_x) / ov.zoom
-        iy  = (event.y() - ov.offset_y) / ov.zoom
-        mx, my = pixel_to_world(ix, iy, ov.xc, ov.yc)
-        parts = [f"Px={int(ix)} Py={int(iy)}"]
-        if math.isfinite(mx) and math.isfinite(my):
-            parts.append(f"Wx={mx:.1f} Wy={my:.1f}")
-        if ov.current_loc:
-            parts.append(
-                f"Player X={ov.current_loc[0]:.1f} Y={ov.current_loc[1]:.1f}")
-        parts.append(f"Zoom {ov.zoom:.3f}")
-        ov.coord_lbl.setText("   ".join(parts))
 
+        # Pixel coordinates
+        ix = (event.x() - ov.offset_x) / ov.zoom
+        iy = (event.y() - ov.offset_y) / ov.zoom
+
+        # World coordinates
+        mx, my = pixel_to_world(ix, iy, ov.xc, ov.yc)
+
+        # Update glow labels
+        ov.coord_labels["Px"].setText(f"Px={int(ix)}")
+        ov.coord_labels["Py"].setText(f"Py={int(iy)}")
+
+        if math.isfinite(mx) and math.isfinite(my):
+            ov.coord_labels["Wx"].setText(f"Wx={mx:.1f}")
+            ov.coord_labels["Wy"].setText(f"Wy={my:.1f}")
+        else:
+            ov.coord_labels["Wx"].setText("Wx=?")
+            ov.coord_labels["Wy"].setText("Wy=?")
+
+        ov.coord_labels["PlayerX"].setText(f"PlayerX={ov.current_loc[0]:.1f}" if ov.current_loc else "PlayerX=0")
+        ov.coord_labels["PlayerY"].setText(f"PlayerY={ov.current_loc[1]:.1f}" if ov.current_loc else "PlayerY=0")
+
+        ov.coord_labels["Zoom"].setText(f"Zoom={ov.zoom:.3f}")
+        
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.ov.panning = False
@@ -754,6 +773,35 @@ class MapCanvas(QWidget):
 
 # ==============================================================
 class MapOverlay(QMainWindow):
+    def _toggle_panel_visibility(self, container: QWidget, button: QPushButton):
+        if container.isVisible():
+            container.hide()
+            button.setText("Show")
+        else:
+            container.show()
+            button.setText("Hide")
+
+    def _toggle_show_cal_points(self):
+        self.show_cal_points = not self.show_cal_points
+        self.btn_calib_hide.setText(
+            "Show Cal Points on Map" if not self.show_cal_points else "Hide Cal Points on Map"
+        )
+        self.canvas.update()
+
+    def _toggle_show_pins(self):
+        self.show_pins = not self.show_pins
+        self.btn_pin_hide.setText(
+            "Show Pins on Map" if not self.show_pins else "Hide Pins on Map"
+        )
+        self.canvas.update()
+
+    def _toggle_show_markers(self):
+        self.show_markers = not self.show_markers
+        self.btn_markers_hide.setText(
+            "Show Markers on Map" if not self.show_markers else "Hide Markers on Map"
+        )
+        self.canvas.update()
+        
     def __init__(self):
         super().__init__()
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
@@ -815,6 +863,10 @@ class MapOverlay(QMainWindow):
 
         self.running = True
         threading.Thread(target=self._watch_clipboard, daemon=True).start()
+        
+        self.show_cal_points = True
+        self.show_pins = True
+        self.show_markers = True
 
     # ===========================================================
     # Load / Save
@@ -1061,9 +1113,20 @@ class MapOverlay(QMainWindow):
         # ---- TOP BAR ----
         self.top_bar = Panel(root)
         self.top_bar.setFixedHeight(TOP_BAR_HEIGHT)
-        tl = QHBoxLayout(self.top_bar)
-        tl.setContentsMargins(6, 4, 6, 4)
-        tl.setSpacing(5)
+        main_layout = QVBoxLayout(self.top_bar)
+        main_layout.setContentsMargins(6, 4, 6, 4)
+        main_layout.setSpacing(0)
+
+        top_row = QHBoxLayout()
+        top_row.setSpacing(5)
+        top_row.setAlignment(Qt.AlignCenter)
+
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(5)
+        bottom_row.setAlignment(Qt.AlignCenter)
+
+        main_layout.addLayout(top_row, 1)
+        main_layout.addLayout(bottom_row, 1)
 
         def mk(text, bg, tip="", w=42):
             b = QPushButton(text)
@@ -1090,11 +1153,11 @@ class MapOverlay(QMainWindow):
             "border:1px solid rgba(255,255,255,40);selection-background-color:#2a4080;}"
         )
         self.map_combo.currentTextChanged.connect(self._on_map_changed)
-        tl.addWidget(self.map_combo)
+        top_row.addWidget(self.map_combo)
 
         sep = QLabel("|")
         sep.setStyleSheet("color:rgba(255,255,255,30);background:transparent;")
-        tl.addWidget(sep)
+        top_row.addWidget(sep)
 
         self.btn_zoom_in   = mk("+",      "#555",    "Zoom in",  30)
         self.btn_zoom_out  = mk("−",      "#555",    "Zoom out", 30)
@@ -1118,16 +1181,57 @@ class MapOverlay(QMainWindow):
             (self.btn_opacity,   self._cycle_opacity),
         ]:
             b.clicked.connect(fn)
-            tl.addWidget(b)
+            top_row.addWidget(b)
 
-        tl.addStretch()
+        bottom_row.addStretch()
 
-        self.coord_lbl = QLabel("")
-        self.coord_lbl.setStyleSheet(
-            "color:rgba(255,255,255,180);font-size:11px;font-family:Consolas,monospace;"
-            "background:transparent;border:none;"
-        )
-        tl.addWidget(self.coord_lbl)
+        # Create a container for coordinate labels
+        self.coord_container = QWidget(self.top_bar)  # or parent you want
+        coord_layout = QHBoxLayout(self.coord_container)
+        coord_layout.setSpacing(12)
+        coord_layout.setContentsMargins(0, 0, 0, 0)
+        self.coord_container.setLayout(coord_layout)
+        self.coord_container.show()
+
+        # Store individual labels in a dict
+        self.coord_labels = {}
+
+        def make_glow_label(name, color="#00ff9c", text=""):
+            lbl = QLabel(text)
+            lbl.setStyleSheet(
+                f"color:{color};"
+                "font-size:11px;"
+                "font-weight:bold;"
+                "font-family:Consolas,monospace;"
+                "background-color: rgba(0, 0, 0, 35);"  # semi-transparent black tint
+                "border:2px solid rgba(0,0,0,190);"  # subtle dark outline
+                "border-radius:1px;"
+                "padding:2px 6px;"
+            )
+            # Add glow
+            shadow = QGraphicsDropShadowEffect()
+            shadow.setBlurRadius(2)
+            shadow.setColor(QColor(color).lighter(110))  # slightly lighter glow
+            shadow.setOffset(0, 0)
+            lbl.setGraphicsEffect(shadow)
+            self.coord_labels[name] = lbl
+            coord_layout.addWidget(lbl)
+            return lbl
+
+        # Example labels (initial empty text)
+        for name, color in [
+            ("Px", "#ffffff"),
+            ("Py", "#ffffff"),
+            ("Wx", "#00ff00"),
+            ("Wy", "#00ff00"),
+            ("PlayerX", "#ffd166"),
+            ("PlayerY", "#ffd166"),
+            ("Zoom", "#66ccff"),
+        ]:
+            make_glow_label(name, color, text="0")
+        
+        bottom_row.addWidget(self.coord_container)
+        bottom_row.addStretch()
 
         # ---- FLASH LABEL ----
         self.flash_lbl = QLabel("", root)
@@ -1312,6 +1416,24 @@ class MapOverlay(QMainWindow):
         self.btn_calib_toggle.clicked.connect(self._toggle_calib_mode)
         v.addWidget(self.btn_calib_toggle)
 
+        # Container for calibration list + controls
+        self.calib_list_container = QWidget()
+        cl_layout = QVBoxLayout(self.calib_list_container)
+        cl_layout.setContentsMargins(0, 0, 0, 0)
+        cl_layout.setSpacing(4)
+
+        # Toggle button — hides/shows cal points ON THE MAP, not the list
+        self.btn_calib_hide = QPushButton("Hide Cal Points on Map")
+        self.btn_calib_hide.setStyleSheet(
+            "QPushButton{background:#666;color:white;border:none;"
+            "font-weight:bold;font-size:11px;border-radius:3px;padding:3px;}"
+            "QPushButton:hover{background:#888;color:white;}"
+        )
+        self.btn_calib_hide.setCheckable(True)
+        self.btn_calib_hide.clicked.connect(self._toggle_show_cal_points)
+        cl_layout.addWidget(self.btn_calib_hide)
+
+        # The actual list
         self.calib_list = QListWidget()
         self.calib_list.setStyleSheet(
             "QListWidget{background:rgba(0,0,0,170);color:white;"
@@ -1322,7 +1444,10 @@ class MapOverlay(QMainWindow):
             "QListWidget::item:hover{background:rgba(255,255,255,18);}"
         )
         self.calib_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        v.addWidget(self.calib_list)
+        cl_layout.addWidget(self.calib_list)
+
+        # Add container to main layout
+        v.addWidget(self.calib_list_container)
 
         row = QHBoxLayout()
         row.setSpacing(6)
@@ -1409,6 +1534,24 @@ class MapOverlay(QMainWindow):
         )
         v.addWidget(sep_lbl)
 
+        # Container for pin list + controls
+        self.pin_list_container = QWidget()
+        pl_layout = QVBoxLayout(self.pin_list_container)
+        pl_layout.setContentsMargins(0, 0, 0, 0)
+        pl_layout.setSpacing(4)
+
+        # Toggle button — hides/shows pins ON THE MAP, not the list
+        self.btn_pin_hide = QPushButton("Hide Pins on Map")
+        self.btn_pin_hide.setStyleSheet(
+            "QPushButton{background:#666;color:white;border:none;"
+            "font-weight:bold;font-size:11px;border-radius:3px;padding:3px;}"
+            "QPushButton:hover{background:#888;color:white;}"
+        )
+        self.btn_pin_hide.setCheckable(True)
+        self.btn_pin_hide.clicked.connect(self._toggle_show_pins)
+        pl_layout.addWidget(self.btn_pin_hide)
+
+        # The actual pin list
         self.pin_list = QListWidget()
         self.pin_list.setStyleSheet(
             "QListWidget{background:rgba(0,0,0,170);color:white;"
@@ -1419,7 +1562,10 @@ class MapOverlay(QMainWindow):
             "QListWidget::item:hover{background:rgba(255,255,255,18);}"
         )
         self.pin_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        v.addWidget(self.pin_list)
+        pl_layout.addWidget(self.pin_list)
+
+        # Add container to main layout
+        v.addWidget(self.pin_list_container)
 
         rrow = QHBoxLayout()
         rrow.setSpacing(5)
@@ -1528,6 +1674,24 @@ class MapOverlay(QMainWindow):
         row.addWidget(add_b)
         v.addLayout(row)
 
+        # Container for markers list + controls
+        self.markers_list_container = QWidget()
+        ml_layout = QVBoxLayout(self.markers_list_container)
+        ml_layout.setContentsMargins(0, 0, 0, 0)
+        ml_layout.setSpacing(4)
+
+        # Toggle button — hides/shows markers ON THE MAP, not the list
+        self.btn_markers_hide = QPushButton("Hide Markers on Map")
+        self.btn_markers_hide.setStyleSheet(
+            "QPushButton{background:#666;color:white;border:none;"
+            "font-weight:bold;font-size:11px;border-radius:3px;padding:3px;}"
+            "QPushButton:hover{background:#888;color:white;}"
+        )
+        self.btn_markers_hide.setCheckable(True)
+        self.btn_markers_hide.clicked.connect(self._toggle_show_markers)
+        ml_layout.addWidget(self.btn_markers_hide)
+
+        # The actual markers list
         self.markers_list = QListWidget()
         self.markers_list.setStyleSheet(
             "QListWidget{background:rgba(0,0,0,170);color:white;"
@@ -1538,7 +1702,10 @@ class MapOverlay(QMainWindow):
             "QListWidget::item:hover{background:rgba(255,255,255,18);}"
         )
         self.markers_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        v.addWidget(self.markers_list)
+        ml_layout.addWidget(self.markers_list)
+
+        # Add container to main layout
+        v.addWidget(self.markers_list_container)
 
         brow = QHBoxLayout()
         for text, bg, fn in [
