@@ -64,10 +64,54 @@
 
 ## Features
 
-* Load and display Pantheon map images from the `Maps` folder.
-* Calibrate maps using at least 3 separate points for accurate positioning.
-* Store pins and calibration data in external JSON files.
-* Windows-focused, portable executable for easy use.
+- **Map Display & Navigation**
+  - Load and display Pantheon map images from the `Maps` folder.
+  - Map selector dropdown to switch between maps.
+  - Zoom in/out with `+` and `-` buttons (zoom range: 0.01 – 18.0).
+  - Center player on map with `⊙` button.
+  - Pan the map by left-clicking and dragging.
+  - Resize and move the map window freely.
+  - Pixel, World, and Player coordinates, as well as current zoom level, update live as you move the mouse.
+
+- **Layers**
+  - Toggle map layers with the Layers button.
+  - **All On / All Off** buttons for quick layer management.
+  - Individually check/uncheck layers to customize what’s visible.
+
+- **Calibration (CAL)**
+  - Calibrate maps using at least 3 points for accurate positioning.
+  - Enable/disable calibration mode.
+  - Options to hide calibration points, edit, delete selected, clear all, and save calibration data.
+
+- **Pins**
+  - Add pins to mark locations with custom names.
+  - Activate pin-drop mode and hide pins on the map.
+  - Edit, delete, clear, save, and rename pins.
+  - Pins stored in external JSON files for persistence.
+
+- **Markers (Mark)**
+  - Input X/Y coordinates to place precise markers on the map.
+  - Assign custom names to each marker.
+  - Hide, edit, delete, clear, and save markers.
+  - Markers stored in JSON files.
+
+- **Update (UPD)**
+  - Download new configuration JSON and map files directly from GitHub.
+  - Displays the number of downloads in progress and the current file being downloaded.
+
+- **Settings**
+  - **SET button** opens settings panel.
+  - Toggle **Auto-center on `/loc`**.
+  - Toggle **Auto-zoom on `/loc`** (default zoom: 1.0).
+  - Adjust application opacity (25%, 50%, 75%, 85%, 100%) by cycling through the Opacity button.
+
+- **Configuration & Data Storage**
+  - Application settings stored in `config.ini`.
+  - Pins, calibration points, and markers stored in JSON files for easy editing and portability.
+
+- **Other**
+  - Windows-focused, portable Python application for easy use.
+  - Organized into multiple modules for maintainability and future feature expansion.
 
 ---
 
