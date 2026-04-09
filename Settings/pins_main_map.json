@@ -28,5 +28,20 @@
     "name": "Mount Quest",
     "px": 2593,
     "py": 1333
+  },
+  {
+    "name": "Demith Binding Stone",
+    "px": 2514,
+    "py": 1329
+  },
+  {
+    "name": "Black Rose Keep",
+    "px": 2279,
+    "py": 1319
+  },
+  {
+    "name": "Druid Port Ring",
+    "px": 2380,
+    "py": 1287
   }
 ]
