@@ -162,13 +162,15 @@ pip --version
 
 ## Dependencies
 
-* Python 3.8+ (only needed if using `.py` source)
-* PyQt5
-* pyperclip
-* numpy
-* Standard Python libraries: `sys`, `time`, `threading`, `json`, `os`, `configparser`
+**For running the source `.py` files:**
+- Python 3.8 or higher
+- PyQt5
+- numpy
+- pyperclip
+- Standard Python libraries: os, sys, time, threading, json, configparser, math, ast, ctypes, typing, urllib
 
-> If you’re using the `.exe`, dependencies are already included.
+**For the `.exe` version:**  
+- No additional dependencies required; everything is included.
 
 ---
 
