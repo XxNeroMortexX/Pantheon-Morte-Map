@@ -345,14 +345,6 @@
       "overwrite": false
     },
     {
-      "name": "Maps_Bundle[v3.2.1.0].zip",
-      "path": "Maps/Maps_Bundle[v3.2.1.0].zip",
-      "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/Maps_Bundle[v3.2.1.0].zip",
-      "sha256": "f5741e43d268d279bc32119567b385458c157d787787ea84477f7090d3c90928",
-      "size": 103741668,
-      "overwrite": false
-    },
-    {
       "name": "NFC_01_Lower2_z5.png",
       "path": "Maps/NFC_01_Lower2_z5.png",
       "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Maps/NFC_01_Lower2_z5.png",
@@ -516,7 +508,7 @@
       "name": "Pantheon_Morte_Map.exe",
       "path": "Pantheon_Morte_Map.exe",
       "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Pantheon_Morte_Map.exe",
-      "sha256": "ca5524f4594ebea83ebdc888995acd61a283d492f255cacb523e6ada6b0e10d2",
+      "sha256": "ba888490dec259271d4317dcb603af79ae0dda87d8b1a043a4f1032ad5c98e95",
       "overwrite": true
     }
   ]
