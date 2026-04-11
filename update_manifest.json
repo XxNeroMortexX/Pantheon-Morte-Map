@@ -53,7 +53,7 @@
       "name": "config.ini",
       "path": "Settings/config.ini",
       "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/config.ini",
-      "sha256": "08798c12544d0b413256bbaa6c1a5976b25e4466fa521bc08114990a4be2eb46",
+      "sha256": "4a73114d320747380d9194ff57699ab0c84156ab1695ea0f79e6749cdaccb878",
       "overwrite": true
     },
     {
@@ -68,7 +68,7 @@
       "name": "pins_halnir_cave.json",
       "path": "Settings/pins_halnir_cave.json",
       "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/pins_halnir_cave.json",
-      "sha256": "098a0bda467390bc23d20a4620d4d38ab96ce929b1a435b5adb93aa2ca3fca05",
+      "sha256": "06444c8a89c31d547b45d543cdae6830f45fa7129b7722b899c42c940234d4c5",
       "size": 153,
       "overwrite": false
     },
@@ -76,7 +76,7 @@
       "name": "pins_main_map.json",
       "path": "Settings/pins_main_map.json",
       "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/pins_main_map.json",
-      "sha256": "5efff964e3677b5a03723c56ac5f839ab1887f52e28a62471439f5ebdc9a8a6f",
+      "sha256": "27b8ed3c9cebb210608f235baca6fb321867a788f492f1ccbb378e86e942763b",
       "size": 672,
       "overwrite": false
     },
@@ -508,7 +508,7 @@
       "name": "Pantheon_Morte_Map.exe",
       "path": "Pantheon_Morte_Map.exe",
       "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Pantheon_Morte_Map.exe",
-      "sha256": "c64c8f239823ba5ac45f845a95b542c8352988b5d17ee76b6361417531dc89f4",
+      "sha256": "438c6adcc1b098da003d2a6b479f628ff96e5e8d69c78bd6054863874f7591e1",
       "overwrite": true
     }
   ]
