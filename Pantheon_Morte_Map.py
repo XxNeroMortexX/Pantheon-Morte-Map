@@ -1,6 +1,6 @@
 # ==============================================================
 # Pantheon Morte Map Tool
-# Version: 4.1.0.0
+# Version: 4.1.1.0
 # Created By: NeroMorte (AKA: Morte)
 # Description: Python tool for map overlay with calibration, pins, layers
 # Build Instructions:
@@ -10,7 +10,7 @@
 #      python build_exe.py
 # ==============================================================
 #
-# What's new in v4.1.0.0
+# What's new in v4.1.1.0
 #   - /loc auto-centers map on player (Settings panel checkbox)
 #   - /loc auto-zoom to 1.0 option   (Settings panel checkbox)
 #   - Z value from /loc auto-selects correct layer per map
@@ -117,6 +117,8 @@ from overlay_location_update import OverlayLocationUpdateMixin
 from overlay_update_download import OverlayUpdateDownloadMixin
 from overlay_ui_panels import OverlayUIPanelsMixin
 from app_settings import WIN_X, WIN_Y, WIN_W, WIN_H
+
+DEBUG = "--debug" in sys.argv
 
 # ==============================================================
 # MAP OVERLAY  (main window)
@@ -248,6 +250,8 @@ class MapOverlay(
         self.sig.loc_updated.connect(self._on_loc_updated)   # auto-center/zoom/layer
         self.sig.flash_msg.connect(self._flash)              # safe cross-thread flash
         self.sig.hotkey_fired.connect(self._toggle_window_visibility)
+        self.sig.update_notice.connect(self._on_update_notice)
+        self.sig.update_finished.connect(self._on_update_finished)
         
         # Debounce timer for window geometry saves
         self._geom_save_timer = QTimer(self)
@@ -278,6 +282,9 @@ class MapOverlay(
         # ---- Clipboard watcher thread ----
         self.running = True
         threading.Thread(target=self._watch_clipboard, daemon=True).start()
+        self._update_in_progress = False
+        self._update_notice_started = False
+        QTimer.singleShot(1500, self._start_update_notice_check)
         
         self.show_cal_points = True
         self.show_pins = True

@@ -15,6 +15,8 @@ class Signals(QObject):
     loc_updated = pyqtSignal()
     flash_msg = pyqtSignal(str)
     hotkey_fired = pyqtSignal()
+    update_notice = pyqtSignal(str, str)
+    update_finished = pyqtSignal(object)
 
 
 _VK_MAP = {chr(c): c for c in range(ord("A"), ord("Z") + 1)}

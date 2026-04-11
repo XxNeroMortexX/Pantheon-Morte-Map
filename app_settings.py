@@ -124,7 +124,7 @@ def _write_ini_with_comments(path: str):
     Creates directories if needed and includes instructions for the user."""
     lines = []
     lines.append("; ================================================================")
-    lines.append("; Pantheon Morte Map v4.1.0.0 —  User Configuration")
+    lines.append("; Pantheon Morte Map v4.1.1.0 —  User Configuration")
     lines.append("; Edit values below, then restart the app for changes to take effect.")
     lines.append("; Lines starting with ; are comments and are ignored.")
     lines.append("; ================================================================")
@@ -194,6 +194,39 @@ def _write_ini_with_comments(path: str):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
+
+
+def _dedupe_ini_file(path: str):
+    """Remove duplicate section keys case-insensitively, keeping the first entry.
+    This recovers older merged configs that accidentally appended lowercase
+    duplicates of existing template keys."""
+    with open(path, "r", encoding="utf-8") as f:
+        lines = f.read().splitlines()
+
+    rendered = []
+    current_section = None
+    seen_keys = {}
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            current_section = stripped[1:-1].strip()
+            seen_keys.setdefault(current_section.casefold(), set())
+            rendered.append(line)
+            continue
+
+        if current_section and stripped and not stripped.startswith((";", "#")) and "=" in line:
+            key_name = line.partition("=")[0].strip()
+            section_key = current_section.casefold()
+            normalized_key = key_name.casefold()
+            if normalized_key in seen_keys.setdefault(section_key, set()):
+                continue
+            seen_keys[section_key].add(normalized_key)
+
+        rendered.append(line)
+
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(rendered).rstrip() + "\n")
         
 
 def _load_ini() -> configparser.ConfigParser:
@@ -206,7 +239,11 @@ def _load_ini() -> configparser.ConfigParser:
         _write_ini_with_comments(_INI_PATH)
         print(f"[config] Created default config: {_INI_PATH}")
     else:
-        cfg.read(_INI_PATH, encoding="utf-8")
+        try:
+            cfg.read(_INI_PATH, encoding="utf-8")
+        except configparser.DuplicateOptionError:
+            _dedupe_ini_file(_INI_PATH)
+            cfg.read(_INI_PATH, encoding="utf-8")
         print(f"[config] Loaded config: {_INI_PATH}")
     return cfg
 
@@ -297,9 +334,9 @@ AUTO_ZOOM_ON_LOC = _CFG.getboolean("location_behavior", "auto_zoom_on_loc", fall
 APP_NAME = "Pantheon Morte Map"
 APP_AUTHOR = "NeroMorte (AKA Morte)"
 APP_DESCRIPTION = "Pantheon Morte Map Viewer"
-APP_VERSION = "4.1.0.0"
+APP_VERSION = "4.1.1.0"
 APP_COPYRIGHT = "© 2026 NeroMorte"
-APP_FILENAME = "Pantheon_Morte_Map[4.1.0.0].exe"
+APP_FILENAME = "Pantheon_Morte_Map.exe"
 
 _RESOLUTION_MAP = {
     "720p": 1280,

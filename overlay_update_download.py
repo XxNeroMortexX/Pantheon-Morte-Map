@@ -1,134 +1,154 @@
-import json
 import os
 import sys
 import threading
-import urllib.error
-import urllib.request
 
-from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QMessageBox
 
 from app_settings import APP_NAME, APP_VERSION, UPDATE_MANIFEST_URL
+from overlay_updater import OverlayUpdater
 
 
 class OverlayUpdateDownloadMixin:
     """Provides methods for checking and downloading overlay updates."""
+
+    def _on_update_notice(self, current_version, remote_version):
+        answer = QMessageBox.question(
+            self,
+            "Update Available",
+            f"A new update is available on GitHub.\n\nCurrent version: {current_version}\nAvailable version: {remote_version}\n\nWould you like to download it now?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if answer == QMessageBox.Yes:
+            self._run_update_check()
+        else:
+            self.sig.flash_msg.emit(
+                f"Update available: {remote_version} (current {current_version})"
+            )
+
+    def _on_update_finished(self, result):
+        self._update_in_progress = False
+        self.btn_update.setEnabled(True)
+
+        lines = []
+        if result["version"]:
+            lines.append(f"Manifest version: {result['version']}")
+
+        if result["updated"]:
+            lines.append("")
+            lines.append(f"Updated {len(result['updated'])} file(s):")
+            lines.extend(f"  + {item}" for item in result["updated"][:30])
+            if len(result["updated"]) > 30:
+                lines.append(f"  ... +{len(result['updated']) - 30} more")
+
+        if result["skipped"]:
+            lines.append("")
+            lines.append(f"Skipped {len(result['skipped'])} file(s):")
+            lines.extend(f"  - {item}" for item in result["skipped"][:20])
+            if len(result["skipped"]) > 20:
+                lines.append(f"  ... +{len(result['skipped']) - 20} more")
+
+        if result["errors"]:
+            lines.append("")
+            lines.append("Errors:")
+            lines.extend(f"  - {item}" for item in result["errors"][:12])
+
+        if result["restart_required"]:
+            lines.append("")
+            lines.append("The application will now close and reopen to finish the EXE update.")
+
+        if not result["updated"] and not result["errors"]:
+            lines.append("")
+            lines.append("Everything is already up to date.")
+
+        lines.append("")
+        lines.append(f"Log: {result['log_file']}")
+
+        title = "Update Complete" if not result["errors"] else "Update Finished With Errors"
+        QMessageBox.information(self, title, "\n".join(lines))
+
+        if result["updated"] and not result["restart_required"]:
+            self._load_map(self.current_map_name)
+
+        if result["restart_required"]:
+            self.sig.flash_msg.emit("Restarting to finish EXE update...")
+            self.close()
+
+    def _start_update_notice_check(self):
+        if not UPDATE_MANIFEST_URL:
+            return
+        if getattr(self, "_update_notice_started", False):
+            return
+        self._update_notice_started = True
+        threading.Thread(target=self._check_for_update_notice, daemon=True).start()
+
     def _run_update_check(self):
-        """
-        UPD button entry point.
-        Shows help if no manifest URL set, otherwise kicks off background download.
-        """
+        if getattr(self, "_update_in_progress", False):
+            self.sig.flash_msg.emit("Update already running...")
+            return
+
         if not UPDATE_MANIFEST_URL:
             QMessageBox.information(
                 self,
                 "Update",
-                "Set  update/manifest_url  in Settings\\config.ini to a raw JSON URL\n"
-                "(e.g. a GitHub raw content URL for update_manifest.json).\n\n"
-                "See CHANGELOG.md for the manifest file format.",
+                "Set update/manifest_url in Settings\\config.ini to a raw JSON URL.",
             )
             return
 
-        # Disable button during download to prevent double-clicks
+        self._update_in_progress = True
         self.btn_update.setEnabled(False)
-        self._flash("Connecting to update server...")
+        self.sig.flash_msg.emit("Connecting to update server...")
         threading.Thread(target=self._do_update_download, daemon=True).start()
 
-    def _do_update_download(self):
-        """
-        Background thread: fetch manifest JSON, then download each file.
-        Uses sig.flash_msg to show per-file progress in the flash label (like map loading).
-        Shows a full summary dialog at the end via QTimer on the main thread.
-        """
-        base = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
-        base_abs = os.path.abspath(base)
+    def _check_for_update_notice(self):
+        base_dir = (
+            os.path.dirname(sys.executable)
+            if getattr(sys, "frozen", False)
+            else os.path.dirname(os.path.abspath(__file__))
+        )
 
-        # Step 1: fetch manifest
+        updater = OverlayUpdater(
+            manifest_url=UPDATE_MANIFEST_URL,
+            app_dir=base_dir,
+            temp_folder="Update_Temp",
+            log_file="update.log",
+            user_agent=f"{APP_NAME}/{APP_VERSION}",
+        )
+
         try:
-            req = urllib.request.Request(
-                UPDATE_MANIFEST_URL,
-                headers={"User-Agent": f"{APP_NAME}/{APP_VERSION}"},
-            )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                raw = resp.read().decode("utf-8", errors="replace")
-            manifest = json.loads(raw)
-        except urllib.error.URLError as e:
-            self.sig.flash_msg.emit(f"Update failed: {e}")
-            QTimer.singleShot(0, lambda: self.btn_update.setEnabled(True))
-            return
-        except json.JSONDecodeError as e:
-            self.sig.flash_msg.emit(f"Bad manifest JSON: {e}")
-            QTimer.singleShot(0, lambda: self.btn_update.setEnabled(True))
-            return
-        except Exception as e:
-            self.sig.flash_msg.emit(f"Update error: {e}")
-            QTimer.singleShot(0, lambda: self.btn_update.setEnabled(True))
+            result = updater.check_for_update(APP_VERSION)
+        except Exception:
             return
 
-        remote_ver = manifest.get("version", "")
-        files = manifest.get("files", [])
-        if not files:
-            self.sig.flash_msg.emit("Manifest has no files.")
-            QTimer.singleShot(0, lambda: self.btn_update.setEnabled(True))
+        if not result["has_update"]:
             return
+        self.sig.update_notice.emit(result["current_version"], result["remote_version"])
 
-        # Step 2: download each file, flashing its name as we go
-        updated = []
-        skipped = []
-        errors = []
-        for idx, ent in enumerate(files):
-            rel = ent.get("path") or ent.get("local")
-            url = ent.get("url")
-            if not rel or not url:
-                continue
-            rel = str(rel).replace("\\", "/")
-            dest = os.path.normpath(os.path.join(base, *rel.split("/")))
-            dest_abs = os.path.abspath(dest)
-            # Security: never write outside the app folder
-            if not (dest_abs == base_abs or dest_abs.startswith(base_abs + os.sep)):
-                errors.append(f"Unsafe path skipped: {rel}")
-                continue
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
+    def _do_update_download(self):
+        base_dir = (
+            os.path.dirname(sys.executable)
+            if getattr(sys, "frozen", False)
+            else os.path.dirname(os.path.abspath(__file__))
+        )
 
-            exp_size = ent.get("size")
-            if os.path.isfile(dest):
-                if exp_size is not None and int(exp_size) == os.path.getsize(dest):
-                    skipped.append(rel)
-                    continue
-                if exp_size is None and not ent.get("overwrite"):
-                    skipped.append(rel)
-                    continue
+        updater = OverlayUpdater(
+            manifest_url=UPDATE_MANIFEST_URL,
+            app_dir=base_dir,
+            temp_folder="Update_Temp",
+            log_file="update.log",
+            user_agent=f"{APP_NAME}/{APP_VERSION}",
+            progress_callback=self.sig.flash_msg.emit,
+        )
 
-            # Flash the current filename -- just like map loading progress
-            short_name = os.path.basename(rel)
-            self.sig.flash_msg.emit(f"Downloading  [{idx+1}/{len(files)}]  {short_name}...")
-            try:
-                part = dest + ".download_part"
-                urllib.request.urlretrieve(url, part)
-                os.replace(part, dest)
-                updated.append(rel)
-            except Exception as e:
-                errors.append(f"{rel}: {e}")
-
-        # Step 3: build summary and show via main thread
-        lines = []
-        if remote_ver:
-            lines.append(f"Manifest version: {remote_ver}\n")
-        if updated:
-            lines.append(
-                f"Downloaded {len(updated)} file(s):\n" + "\n".join(f"  + {r}" for r in updated[:30])
-            )
-            if len(updated) > 30:
-                lines.append(f"  ... +{len(updated)-30} more")
-        if skipped:
-            lines.append(f"\nSkipped {len(skipped)} already up-to-date file(s).")
-        if not updated and not errors:
-            lines.append("Everything is already up to date.")
-        if errors:
-            lines.append("\nErrors:\n" + "\n".join(errors[:12]))
-
-        QTimer.singleShot(0, lambda: self.btn_update.setEnabled(True))
-        QTimer.singleShot(0, lambda: QMessageBox.information(self, "Update Complete", "\n".join(lines)))
-
-        if updated:
-            QTimer.singleShot(200, lambda: self._load_map(self.current_map_name))
-
+        try:
+            result = updater.perform_update()
+        except Exception as exc:
+            result = {
+                "version": "",
+                "updated": [],
+                "skipped": [],
+                "errors": [str(exc)],
+                "log_file": str(updater.log_file),
+                "restart_required": False,
+            }
+        self.sig.update_finished.emit(result)
