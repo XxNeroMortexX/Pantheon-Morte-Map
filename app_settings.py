@@ -1,10 +1,19 @@
+# Pantheon Morte Map — Current Release Version
+APP_VERSION = "4.1.2.0"
+
+APP_NAME = "Pantheon Morte Map"
+APP_AUTHOR = "NeroMorte (AKA Morte)"
+APP_DESCRIPTION = "Pantheon Morte Map Viewer"
+APP_COPYRIGHT = "© 2026 NeroMorte"
+APP_FILENAME = "Pantheon_Morte_Map.exe"
+
 import configparser
 import os
 import sys
+import ctypes
 
 from PyQt5.QtGui import QColor
 
-    
 def resource_path(relative_path):
     """Return the absolute path to a resource file.  
     Handles both frozen executables and normal script runs."""
@@ -124,7 +133,7 @@ def _write_ini_with_comments(path: str):
     Creates directories if needed and includes instructions for the user."""
     lines = []
     lines.append("; ================================================================")
-    lines.append("; Pantheon Morte Map v4.1.1.0 —  User Configuration")
+    lines.append("; Pantheon Morte Map v{APP_VERSION} —  User Configuration")
     lines.append("; Edit values below, then restart the app for changes to take effect.")
     lines.append("; Lines starting with ; are comments and are ignored.")
     lines.append("; ================================================================")
@@ -330,13 +339,6 @@ LOCK_ZOOM_CAL = _CFG.getboolean("calibration_extra", "lock_zoom_in_cal_mode", fa
 UPDATE_MANIFEST_URL = _CFG.get("update", "manifest_url", fallback=_INI_DEFAULTS["update"]["manifest_url"]).strip()
 AUTO_CENTER_ON_LOC = _CFG.getboolean("location_behavior", "auto_center_on_loc", fallback=_INI_DEFAULTS["location_behavior"]["auto_center_on_loc"])
 AUTO_ZOOM_ON_LOC = _CFG.getboolean("location_behavior", "auto_zoom_on_loc", fallback=_INI_DEFAULTS["location_behavior"]["auto_zoom_on_loc"])
-
-APP_NAME = "Pantheon Morte Map"
-APP_AUTHOR = "NeroMorte (AKA Morte)"
-APP_DESCRIPTION = "Pantheon Morte Map Viewer"
-APP_VERSION = "4.1.1.0"
-APP_COPYRIGHT = "© 2026 NeroMorte"
-APP_FILENAME = "Pantheon_Morte_Map.exe"
 
 _RESOLUTION_MAP = {
     "720p": 1280,

@@ -1,5 +1,5 @@
 {
-  "version": "4.1.1.0",
+  "version": "4.1.2.0",
   "files": [
     {
       "name": "calibration_black_rose_keep.json",
@@ -53,7 +53,7 @@
       "name": "config.ini",
       "path": "Settings/config.ini",
       "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Settings/config.ini",
-      "sha256": "4a73114d320747380d9194ff57699ab0c84156ab1695ea0f79e6749cdaccb878",
+      "sha256": "1a682b9b915582041cc8914ea6c8af393b4418d2cc92eaac7d01c2e405f70fde",
       "overwrite": true
     },
     {
@@ -508,7 +508,7 @@
       "name": "Pantheon_Morte_Map.exe",
       "path": "Pantheon_Morte_Map.exe",
       "url": "https://raw.githubusercontent.com/XxNeroMortexX/Pantheon-Morte-Map/main/Pantheon_Morte_Map.exe",
-      "sha256": "500a43b489790b41f4664a766d3862618338c57606d4aec9c85182f73f61540c",
+      "sha256": "aeaecfceca3da48ea2cd57cb00dd3b2494af7edb8df285a9f7f8a02bdd6f6f02",
       "overwrite": true
     }
   ]

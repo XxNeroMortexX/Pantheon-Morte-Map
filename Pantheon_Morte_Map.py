@@ -1,6 +1,6 @@
 # ==============================================================
 # Pantheon Morte Map Tool
-# Version: 4.1.1.0
+# Version: 4.1.2.0
 # Created By: NeroMorte (AKA: Morte)
 # Description: Python tool for map overlay with calibration, pins, layers
 # Build Instructions:
@@ -10,20 +10,7 @@
 #      python build_exe.py
 # ==============================================================
 #
-# What's new in v4.1.1.0
-#   - /loc auto-centers map on player (Settings panel checkbox)
-#   - /loc auto-zoom to 1.0 option   (Settings panel checkbox)
-#   - Z value from /loc auto-selects correct layer per map
-#     configured via [map_z_layers] in config.ini (range-based min,max)
-#   - Shift+M is now a GLOBAL system-wide hotkey (works even when
-#     the window is not focused) — properly minimizes / restores
-#   - UPD button shows live per-file download progress in the flash
-#     bar, with a full summary at the end
-#   - Selecting a map now FILLS the viewport (crop-to-fill) and
-#     centers the image — no more white space around the map
-#   - New Settings panel (gear ⚙ button) with auto-center / auto-zoom
-#     checkboxes for /loc behavior
-#
+
 import sys
 import time
 import threading
@@ -44,11 +31,11 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QLabel,
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit,
     QListWidget, QComboBox, QSizePolicy, QCheckBox, QScrollArea,
-    QShortcut, QMessageBox,
+    QMessageBox,
 )
 from PyQt5.QtGui import (
     QPixmap, QPainter, QColor, QFont, QPen,
-    QPainterPath, QFontMetrics, QIcon, QImage, QKeySequence
+    QPainterPath, QFontMetrics, QIcon, QImage
 )
 from PyQt5.QtCore import Qt, QPoint, QTimer
 
@@ -271,11 +258,7 @@ class MapOverlay(
         if PULSE_RINGS > 0:
             self._pulse_timer.start()
 
-        # Fallback Qt shortcut (fires only when window is focused)
-        sc = QShortcut(QKeySequence(TOGGLE_MAP_KEYS), self)
-        sc.activated.connect(self._toggle_window_visibility)
-
-        # Global hotkey thread -- fires even when the game has focus
+        # Keyboard hook thread -- only fires while Pantheon is focused
         self._hotkey_thread = _GlobalHotkeyThread(self.sig, TOGGLE_MAP_KEYS)
         self._hotkey_thread.start()
         
@@ -599,16 +582,31 @@ class MapOverlay(
     def _toggle_window_visibility(self):
         """
         Minimize if visible+normal; restore if minimized or hidden.
-        Called by global hotkey thread AND fallback Qt shortcut.
-        Works system-wide because hotkey thread uses RegisterHotKey.
+        Does NOT steal focus from the game.
         """
+        import ctypes
+
+        hwnd = int(self.winId())
+
         if self.isMinimized() or not self.isVisible():
-            # Restore: bring it back from the taskbar / hidden state
-            self.showNormal()
-            self.activateWindow()
-            self.raise_()
+            # Restore WITHOUT taking focus (HARD FIX)
+            SW_SHOWNOACTIVATE = 4
+            HWND_TOPMOST = -1
+            SWP_NOSIZE = 0x0001
+            SWP_NOMOVE = 0x0002
+            SWP_NOACTIVATE = 0x0010
+            SWP_SHOWWINDOW = 0x0040
+
+            ctypes.windll.user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
+
+            ctypes.windll.user32.SetWindowPos(
+                hwnd,
+                HWND_TOPMOST,
+                0, 0, 0, 0,
+                SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW
+            )
         else:
-            # Minimize: tuck it into the taskbar
+            # Minimize normally
             self.showMinimized()
     
     def _load_named_markers(self, map_name):
